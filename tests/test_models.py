@@ -4,7 +4,7 @@ import pytest
 from uuid import uuid4
 from datetime import datetime
 
-from memory.db.models import Resource, Item, Category, GraphEdge
+from kiroku_memory.db.models import Resource, Item, Category, GraphEdge
 
 
 def test_resource_model():

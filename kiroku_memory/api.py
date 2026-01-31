@@ -21,8 +21,8 @@ from .observability import metrics, get_health_status, logger
 
 
 app = FastAPI(
-    title="AI Agent Memory API",
-    description="Tiered retrieval with vector search and knowledge graph",
+    title="Kiroku Memory API",
+    description="Tiered Retrieval Memory System for AI Agents",
     version="0.1.0",
 )
 

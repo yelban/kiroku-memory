@@ -58,7 +58,8 @@ dmypy.json
 x-to-markdown/
 
 # Internal development artifacts
-codex-plan.md
+codex-plan*.md
+SESSION_STATE.md
 docs/development-journey.md
 docs/x-tweet-extraction-workflow.md
 
@@ -69,3 +70,6 @@ Thumbs.db
 # Logs
 *.log
 logs/
+
+# Packaged skills
+*.skill

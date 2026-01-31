@@ -1,6 +1,6 @@
-# AI Agent Memory System 整合指南
+# Kiroku Memory 整合指南
 
-本指南說明如何將記憶系統整合到各種 AI Agent 應用中。
+本指南說明如何將 Kiroku Memory 整合到各種 AI Agent 應用中。
 
 ## 1. Claude Code 整合
 
@@ -19,11 +19,11 @@ import json
 from mcp.server import Server
 from mcp.types import Tool, TextContent
 
-from memory.db.database import get_session
-from memory.ingest import ingest_message
-from memory.extract import extract_and_store
-from memory.summarize import get_tiered_context
-from memory.api import retrieve_memory
+from kiroku_memory.db.database import get_session
+from kiroku_memory.ingest import ingest_message
+from kiroku_memory.extract import extract_and_store
+from kiroku_memory.summarize import get_tiered_context
+from kiroku_memory.api import retrieve_memory
 
 app = Server("memory-system")
 
@@ -64,7 +64,7 @@ if __name__ == "__main__":
   "mcpServers": {
     "memory": {
       "command": "uv",
-      "args": ["run", "python", "/path/to/old-frand/memory_mcp.py"],
+      "args": ["run", "python", "/path/to/kiroku-memory/memory_mcp.py"],
       "env": {
         "DATABASE_URL": "postgresql+asyncpg://...",
         "OPENAI_API_KEY": "sk-..."
@@ -152,14 +152,14 @@ if __name__ == "__main__":
 ```markdown
 ## Memory System
 
-本專案使用 AI Agent Memory System 管理長期記憶。
+本專案使用 Kiroku Memory 管理長期記憶。
 
 ### 啟動服務
 
 \`\`\`bash
-cd /path/to/old-frand
+cd /path/to/kiroku-memory
 docker compose up -d
-uv run uvicorn memory.api:app --reload
+uv run uvicorn kiroku_memory.api:app --reload
 \`\`\`
 
 ### 每次對話前

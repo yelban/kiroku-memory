@@ -1,4 +1,6 @@
-# AI Agent 記憶系統
+# Kiroku Memory
+
+> AI Agent 分層檢索記憶系統
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-green.svg)](https://fastapi.tiangolo.com/)
@@ -37,7 +39,7 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                     AI Agent 記憶系統                            │
+│                        Kiroku Memory                             │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
 │  ┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐   │
@@ -81,8 +83,8 @@
 
 ```bash
 # 複製儲存庫
-git clone https://github.com/your-repo/ai-agent-memory.git
-cd ai-agent-memory
+git clone https://github.com/yelban/kiroku-memory.git
+cd kiroku-memory
 
 # 使用 uv 安裝依賴
 uv sync
@@ -100,7 +102,7 @@ cp .env.example .env
 docker compose up -d
 
 # 啟動 API 伺服器
-uv run uvicorn memory.api:app --reload
+uv run uvicorn kiroku_memory.api:app --reload
 
 # API 將運行在 http://localhost:8000
 ```
@@ -209,8 +211,8 @@ curl "http://localhost:8000/context"
 ```python
 # memory_mcp.py
 from mcp.server import Server
-from memory.db.database import get_session
-from memory.summarize import get_tiered_context
+from kiroku_memory.db.database import get_session
+from kiroku_memory.summarize import get_tiered_context
 
 app = Server("memory-system")
 
@@ -308,7 +310,7 @@ def time_decay_score(created_at, half_life_days=30):
 
 ```
 .
-├── memory/
+├── kiroku_memory/
 │   ├── api.py              # FastAPI 端點
 │   ├── ingest.py           # 資源攝取
 │   ├── extract.py          # 事實抽取（LLM）

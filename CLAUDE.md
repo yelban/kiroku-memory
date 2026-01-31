@@ -1,129 +1,157 @@
-# AI Agent Memory System
+# Kiroku Memory
 
-## 專案概述
+> Tiered Retrieval Memory System for AI Agents
 
-這是一個 AI Agent 長期記憶系統，基於 Rohit 的 "How to Build an Agent That Never Forgets" 設計理念實作。
+An AI Agent long-term memory system based on Rohit's "How to Build an Agent That Never Forgets" design principles.
 
-**核心特點**：
-- Hybrid Memory Stack：結合 append-only logs、結構化 facts、分類摘要
-- Tiered Retrieval：摘要優先，按需深入
-- Time Decay：記憶隨時間衰減
-- Conflict Resolution：自動解決矛盾記憶
+**Core Features**:
+- Hybrid Memory Stack: Combines append-only logs, structured facts, and category summaries
+- Tiered Retrieval: Summaries first, drill down as needed
+- Time Decay: Memory confidence decays over time
+- Conflict Resolution: Automatic contradiction detection and resolution
 
-## 快速啟動
+## Quick Start
 
 ```bash
-# 啟動 PostgreSQL + pgvector
+# Start PostgreSQL + pgvector
 docker compose up -d
 
-# 啟動 API
-uv run uvicorn memory.api:app --reload
+# Start API
+uv run uvicorn kiroku_memory.api:app --reload
 
-# 健康檢查
+# Health check
 curl http://localhost:8000/health
 ```
 
-## 環境變數
+## Environment Variables
 
-複製 `.env.example` 為 `.env`，設定：
+Copy `.env.example` to `.env` and configure:
 
 ```
 DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/memory
-OPENAI_API_KEY=sk-xxx  # 必填
+OPENAI_API_KEY=sk-xxx  # Required
 ```
 
-## API 端點
+## API Endpoints
 
-### 核心功能
-| Method | Path | 功能 |
-|--------|------|------|
-| POST | /ingest | 攝取原始訊息 |
-| GET | /retrieve | Tiered 檢索 |
-| GET | /context | Agent prompt 上下文 |
+### Core
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | /ingest | Ingest raw messages |
+| GET | /retrieve | Tiered retrieval |
+| GET | /context | Agent prompt context |
 
-### 智慧功能
-| Method | Path | 功能 |
-|--------|------|------|
-| POST | /extract | 抽取 facts |
-| POST | /summarize | 生成摘要 |
+### Intelligence
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | /extract | Extract facts |
+| POST | /summarize | Generate summaries |
 
-### 維護任務
-| Method | Path | 功能 |
-|--------|------|------|
-| POST | /jobs/nightly | 每日維護 |
-| POST | /jobs/weekly | 每週維護 |
-| POST | /jobs/monthly | 每月維護 |
+### Maintenance
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | /jobs/nightly | Daily maintenance |
+| POST | /jobs/weekly | Weekly maintenance |
+| POST | /jobs/monthly | Monthly maintenance |
 
-### 監控
-| Method | Path | 功能 |
-|--------|------|------|
-| GET | /health | 健康檢查 |
-| GET | /metrics | 應用指標 |
+### Observability
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | /health | Health check |
+| GET | /metrics | Application metrics |
 
-## 整合範例
+## Integration Example
 
-### 在其他 Agent 中使用
+### Using in Other Agents
 
 ```javascript
-// 取得記憶上下文
+// Get memory context
 const context = await fetch("http://localhost:8000/context").then(r => r.json());
 
-// 加入 system prompt
+// Add to system prompt
 const enhancedPrompt = `${context.context}\n\n${originalPrompt}`;
 
-// 對話後儲存重要資訊
+// Save important info after conversation
 await fetch("http://localhost:8000/ingest", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ content: "用戶喜歡...", source: "my-agent" })
+  body: JSON.stringify({ content: "User likes...", source: "my-agent" })
 });
 ```
 
-## 文件
+## Claude Code Integration
 
-- `docs/architecture.md` - 架構設計
-- `docs/development-journey.md` - 開發歷程
-- `docs/user-guide.md` - 使用者手冊
-- `docs/integration-guide.md` - 整合指南
-
-## 專案結構
+Full Claude Code integration implemented:
 
 ```
-old-frand/
-├── memory/              # 核心模組
+~/.claude/skills/kiroku-memory/
+├── SKILL.md              # Documentation (EN)
+├── SKILL.zh-TW.md        # Traditional Chinese
+├── SKILL.ja.md           # Japanese
+├── scripts/              # /remember, /recall, /forget, /memory-status
+├── references/           # Reference docs
+└── assets/               # Install script
+```
+
+**Features**:
+- SessionStart hook auto-loads memory context
+- Stop hook intelligently saves important conversations
+- Manual commands for memory management
+
+See `docs/claude-code-integration.md` for details.
+
+## Documentation
+
+- `docs/architecture.md` - Architecture design
+- `docs/development-journey.md` - Development journey
+- `docs/user-guide.md` - User guide
+- `docs/integration-guide.md` - Integration guide
+- `docs/claude-code-integration.md` - Claude Code integration guide
+- `docs/renaming-changelog.md` - Renaming changelog
+
+## Project Structure
+
+```
+kiroku-memory/
+├── kiroku_memory/       # Core module
 │   ├── api.py           # FastAPI endpoints
-│   ├── ingest.py        # 資源攝取
+│   ├── ingest.py        # Resource ingestion
 │   ├── extract.py       # Fact extraction
-│   ├── classify.py      # 分類器
-│   ├── conflict.py      # 衝突解決
-│   ├── summarize.py     # 摘要生成
-│   ├── embedding.py     # 向量搜尋
-│   ├── observability.py # 監控
-│   ├── db/              # 資料庫
-│   └── jobs/            # 維護任務
-├── tests/               # 測試
-├── docs/                # 文件
-├── docker-compose.yml   # PostgreSQL 設定
-└── pyproject.toml       # 專案設定
+│   ├── classify.py      # Classifier
+│   ├── conflict.py      # Conflict resolution
+│   ├── summarize.py     # Summary generation
+│   ├── embedding.py     # Vector search
+│   ├── observability.py # Monitoring
+│   ├── db/              # Database
+│   └── jobs/            # Maintenance jobs
+├── tests/               # Tests
+├── docs/                # Documentation
+├── docker-compose.yml   # PostgreSQL config
+└── pyproject.toml       # Project config
 ```
 
-## 開發規範
+## Development
 
-- 語言：Python 3.11+
-- 框架：FastAPI + SQLAlchemy 2.x
-- 資料庫：PostgreSQL 16 + pgvector
-- 依賴管理：uv
-- 測試：pytest + pytest-asyncio
+- Language: Python 3.11+
+- Framework: FastAPI + SQLAlchemy 2.x
+- Database: PostgreSQL 16 + pgvector
+- Package Manager: uv
+- Testing: pytest + pytest-asyncio
 
-## 常用命令
+## Common Commands
 
 ```bash
-# 執行測試
+# Run tests
 uv run pytest
 
-# 格式化
+# Format code
 uv run ruff format .
 
-# 型別檢查
-uv run mypy memory/
+# Type check
+uv run mypy kiroku_memory/
 ```
+
+## Translations
+
+- [繁體中文](CLAUDE.zh-TW.md)
+- [日本語](CLAUDE.ja.md)

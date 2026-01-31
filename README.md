@@ -1,4 +1,6 @@
-# AI Agent Memory System
+# Kiroku Memory
+
+> Tiered Retrieval Memory System for AI Agents
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-green.svg)](https://fastapi.tiangolo.com/)
@@ -37,7 +39,7 @@ This system addresses these challenges with a **Hybrid Memory Stack** architectu
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                     AI Agent Memory System                       │
+│                        Kiroku Memory                             │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
 │  ┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐   │
@@ -81,8 +83,8 @@ This system addresses these challenges with a **Hybrid Memory Stack** architectu
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-repo/ai-agent-memory.git
-cd ai-agent-memory
+git clone https://github.com/yelban/kiroku-memory.git
+cd kiroku-memory
 
 # Install dependencies using uv
 uv sync
@@ -100,7 +102,7 @@ cp .env.example .env
 docker compose up -d
 
 # Start the API server
-uv run uvicorn memory.api:app --reload
+uv run uvicorn kiroku_memory.api:app --reload
 
 # The API will be available at http://localhost:8000
 ```
@@ -202,15 +204,66 @@ curl "http://localhost:8000/context"
 
 ## Integration
 
-### With Claude Code (MCP Server)
+### With Claude Code (Recommended)
 
-Create an MCP server to integrate with Claude Code:
+#### Option 1: Plugin Marketplace (Easiest)
+
+```bash
+# Step 1: Add the marketplace
+/plugin marketplace add https://github.com/yelban/kiroku-memory.git
+
+# Step 2: Install the plugin
+/plugin install kiroku-memory
+```
+
+#### Option 2: npx Skills CLI
+
+```bash
+# Vercel Skills CLI
+npx skills add yelban/kiroku-memory
+
+# Or add-skill CLI
+npx add-skill yelban/kiroku-memory
+
+# Or OpenSkills
+npx openskills install yelban/kiroku-memory
+```
+
+#### Option 3: Manual Installation
+
+```bash
+# One-click install
+curl -fsSL https://raw.githubusercontent.com/yelban/kiroku-memory/main/skill/assets/install.sh | bash
+
+# Or clone and install
+git clone https://github.com/yelban/kiroku-memory.git
+cd kiroku-memory/skill/assets && ./install.sh
+```
+
+After installation, restart Claude Code and use:
+
+```bash
+/remember 用戶偏好深色模式          # Save memory
+/recall 編輯器偏好                  # Search memories
+/memory-status                      # Check status
+```
+
+**Features:**
+- **Auto-load**: SessionStart hook injects memory context
+- **Smart-save**: Stop hook automatically saves important facts
+- **Cross-project**: Global + project-specific memory scopes
+
+See [Claude Code Integration Guide](docs/claude-code-integration.md) for details.
+
+### With MCP Server (Advanced)
+
+For custom MCP server integration:
 
 ```python
 # memory_mcp.py
 from mcp.server import Server
-from memory.db.database import get_session
-from memory.summarize import get_tiered_context
+from kiroku_memory.db.database import get_session
+from kiroku_memory.summarize import get_tiered_context
 
 app = Server("memory-system")
 
@@ -308,7 +361,7 @@ def time_decay_score(created_at, half_life_days=30):
 
 ```
 .
-├── memory/
+├── kiroku_memory/          # Core Python package
 │   ├── api.py              # FastAPI endpoints
 │   ├── ingest.py           # Resource ingestion
 │   ├── extract.py          # Fact extraction (LLM)
@@ -317,24 +370,17 @@ def time_decay_score(created_at, half_life_days=30):
 │   ├── summarize.py        # Summary generation
 │   ├── embedding.py        # Vector search
 │   ├── observability.py    # Metrics & logging
-│   ├── db/
-│   │   ├── models.py       # SQLAlchemy models
-│   │   ├── schema.sql      # PostgreSQL schema
-│   │   ├── database.py     # Connection management
-│   │   └── config.py       # Settings
-│   └── jobs/
-│       ├── nightly.py      # Daily maintenance
-│       ├── weekly.py       # Weekly maintenance
-│       └── monthly.py      # Monthly maintenance
+│   ├── db/                 # Database layer
+│   └── jobs/               # Maintenance jobs
+├── skill/                  # Claude Code Skill
+│   ├── SKILL.md            # Skill documentation (EN)
+│   ├── SKILL.zh-TW.md      # 繁體中文
+│   ├── SKILL.ja.md         # 日本語
+│   ├── scripts/            # Commands & hooks
+│   ├── references/         # Reference docs
+│   └── assets/             # Install script
 ├── tests/
-│   ├── test_models.py
-│   └── load/
-│       └── test_retrieval.py
 ├── docs/
-│   ├── architecture.md
-│   ├── development-journey.md
-│   ├── user-guide.md
-│   └── integration-guide.md
 ├── docker-compose.yml
 ├── pyproject.toml
 └── README.md
@@ -345,7 +391,9 @@ def time_decay_score(created_at, half_life_days=30):
 - [Architecture Design](docs/architecture.md) - System architecture and design decisions
 - [Development Journey](docs/development-journey.md) - From idea to implementation
 - [User Guide](docs/user-guide.md) - Comprehensive usage guide
-- [Integration Guide](docs/integration-guide.md) - Integration with Claude Code, Codex, and chat bots
+- [Integration Guide](docs/integration-guide.md) - Integration with chat bots and custom agents
+- [Claude Code Integration](docs/claude-code-integration.md) - Claude Code skill setup and usage
+- [Renaming Changelog](docs/renaming-changelog.md) - Project renaming history
 
 ## Tech Stack
 

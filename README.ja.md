@@ -1,4 +1,6 @@
-# AI Agent メモリシステム
+# Kiroku Memory
+
+> AI エージェント向け階層検索メモリシステム
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-green.svg)](https://fastapi.tiangolo.com/)
@@ -37,7 +39,7 @@ AI エージェント向けの本番環境対応メモリシステムです。�
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                   AI Agent メモリシステム                        │
+│                        Kiroku Memory                             │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
 │  ┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐   │
@@ -81,8 +83,8 @@ AI エージェント向けの本番環境対応メモリシステムです。�
 
 ```bash
 # リポジトリをクローン
-git clone https://github.com/your-repo/ai-agent-memory.git
-cd ai-agent-memory
+git clone https://github.com/yelban/kiroku-memory.git
+cd kiroku-memory
 
 # uv で依存関係をインストール
 uv sync
@@ -100,7 +102,7 @@ cp .env.example .env
 docker compose up -d
 
 # API サーバーを起動
-uv run uvicorn memory.api:app --reload
+uv run uvicorn kiroku_memory.api:app --reload
 
 # API は http://localhost:8000 で利用可能
 ```
@@ -209,8 +211,8 @@ Claude Code と統合するための MCP サーバーを作成：
 ```python
 # memory_mcp.py
 from mcp.server import Server
-from memory.db.database import get_session
-from memory.summarize import get_tiered_context
+from kiroku_memory.db.database import get_session
+from kiroku_memory.summarize import get_tiered_context
 
 app = Server("memory-system")
 
@@ -308,7 +310,7 @@ def time_decay_score(created_at, half_life_days=30):
 
 ```
 .
-├── memory/
+├── kiroku_memory/
 │   ├── api.py              # FastAPI エンドポイント
 │   ├── ingest.py           # リソースの取り込み
 │   ├── extract.py          # ファクト抽出（LLM）

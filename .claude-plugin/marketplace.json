@@ -1,0 +1,24 @@
+{
+  "name": "yelban-plugins",
+  "owner": {
+    "name": "yelban",
+    "email": "yelban@gmail.com"
+  },
+  "metadata": {
+    "description": "yelban's Claude Code plugins collection",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "kiroku-memory",
+      "source": ".",
+      "description": "AI Agent long-term memory system with cross-session, cross-project persistence. Automatically loads memory context on session start and intelligently saves important facts on session end.",
+      "version": "0.1.0",
+      "author": {
+        "name": "yelban"
+      },
+      "category": "productivity",
+      "homepage": "https://github.com/yelban/kiroku-memory"
+    }
+  ]
+}

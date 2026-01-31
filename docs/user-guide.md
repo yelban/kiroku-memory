@@ -1,4 +1,4 @@
-# AI Agent Memory System 使用者手冊
+# Kiroku Memory 使用者手冊
 
 ## 1. 快速開始
 
@@ -12,7 +12,7 @@
 
 ```bash
 # 進入專案目錄
-cd /path/to/old-frand
+cd /path/to/kiroku-memory
 
 # 安裝依賴
 uv sync
@@ -30,7 +30,7 @@ cp .env.example .env
 docker compose up -d
 
 # 啟動 API 服務
-uv run uvicorn memory.api:app --reload
+uv run uvicorn kiroku_memory.api:app --reload
 
 # API 將運行在 http://localhost:8000
 ```
@@ -306,7 +306,7 @@ docker ps
 
 # 重啟服務
 docker compose restart
-uv run uvicorn memory.api:app --reload
+uv run uvicorn kiroku_memory.api:app --reload
 ```
 
 ### 7.2 Extraction 失敗
@@ -345,7 +345,7 @@ docker compose up -d
 
 ### 8.2 自訂分類
 
-編輯 `memory/classify.py`：
+編輯 `kiroku_memory/classify.py`：
 
 ```python
 DEFAULT_CATEGORIES = [
@@ -358,7 +358,7 @@ DEFAULT_CATEGORIES = [
 
 ### 8.3 調整時間衰減
 
-編輯 `memory/jobs/weekly.py`：
+編輯 `kiroku_memory/jobs/weekly.py`：
 
 ```python
 DEFAULT_HALF_LIFE_DAYS = 30  # 調整半衰期
