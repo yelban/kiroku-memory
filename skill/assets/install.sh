@@ -56,8 +56,8 @@ detect_source() {
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     POTENTIAL_SKILL_SRC="$(dirname "$SCRIPT_DIR")"
 
-    # Check if running from local skill directory
-    if [ -f "$POTENTIAL_SKILL_SRC/skill.md" ] && [ -d "$POTENTIAL_SKILL_SRC/scripts" ]; then
+    # Check if running from local skill directory (SKILL.md or skill.md)
+    if { [ -f "$POTENTIAL_SKILL_SRC/SKILL.md" ] || [ -f "$POTENTIAL_SKILL_SRC/skill.md" ]; } && [ -d "$POTENTIAL_SKILL_SRC/scripts" ]; then
         SKILL_SRC="$POTENTIAL_SKILL_SRC"
         echo "Installing from local: $SKILL_SRC"
     else
@@ -79,8 +79,13 @@ install_skill() {
     # Create directories
     mkdir -p "$SKILL_DIR"/{scripts,references,assets}
 
-    # Copy files
-    cp "$SKILL_SRC/skill.md" "$SKILL_DIR/"
+    # Copy files (handle both SKILL.md and skill.md)
+    if [ -f "$SKILL_SRC/SKILL.md" ]; then
+        cp "$SKILL_SRC/SKILL.md" "$SKILL_DIR/"
+        cp "$SKILL_SRC/SKILL."*.md "$SKILL_DIR/" 2>/dev/null || true
+    elif [ -f "$SKILL_SRC/skill.md" ]; then
+        cp "$SKILL_SRC/skill.md" "$SKILL_DIR/"
+    fi
     cp "$SKILL_SRC/scripts/"*.py "$SKILL_DIR/scripts/"
     cp "$SKILL_SRC/references/"*.md "$SKILL_DIR/references/" 2>/dev/null || true
     cp "$SKILL_SRC/assets/"* "$SKILL_DIR/assets/" 2>/dev/null || true
@@ -96,6 +101,107 @@ install_skill() {
     ln -sf "../scripts/memory-status.py" "$SKILL_DIR/bin/memory-status"
 
     echo -e "${GREEN}✓ Skill files installed${NC}"
+}
+
+# Create command alias skills for /remember, /recall, /forget, /memory-status
+create_alias_skills() {
+    echo "Creating command alias skills..."
+
+    SKILLS_BASE="$HOME/.claude/skills"
+
+    # remember alias
+    mkdir -p "$SKILLS_BASE/remember/scripts"
+    cat > "$SKILLS_BASE/remember/SKILL.md" << 'EOF'
+---
+name: remember
+description: Store memories to Kiroku Memory system. Usage: /remember <content>
+---
+
+# Remember
+
+Store memories to Kiroku Memory system.
+
+## Usage
+
+```bash
+/remember User prefers dark mode
+/remember --category preferences Likes using Neovim
+/remember --global Nickname is ChuiChui
+```
+
+See [kiroku-memory](../kiroku-memory/SKILL.md) for full documentation.
+EOF
+    ln -sf "../../kiroku-memory/scripts/remember.py" "$SKILLS_BASE/remember/scripts/remember.py"
+
+    # recall alias
+    mkdir -p "$SKILLS_BASE/recall/scripts"
+    cat > "$SKILLS_BASE/recall/SKILL.md" << 'EOF'
+---
+name: recall
+description: Search memories from Kiroku Memory system. Usage: /recall <query>
+---
+
+# Recall
+
+Search memories from Kiroku Memory system.
+
+## Usage
+
+```bash
+/recall editor preferences
+/recall --context  # Get full context
+```
+
+See [kiroku-memory](../kiroku-memory/SKILL.md) for full documentation.
+EOF
+    ln -sf "../../kiroku-memory/scripts/recall.py" "$SKILLS_BASE/recall/scripts/recall.py"
+
+    # forget alias
+    mkdir -p "$SKILLS_BASE/forget/scripts"
+    cat > "$SKILLS_BASE/forget/SKILL.md" << 'EOF'
+---
+name: forget
+description: Delete or archive memories from Kiroku Memory system. Usage: /forget <query>
+---
+
+# Forget
+
+Delete or archive memories from Kiroku Memory system.
+
+## Usage
+
+```bash
+/forget outdated preference
+/forget --archive old project info
+```
+
+See [kiroku-memory](../kiroku-memory/SKILL.md) for full documentation.
+EOF
+    ln -sf "../../kiroku-memory/scripts/forget.py" "$SKILLS_BASE/forget/scripts/forget.py"
+
+    # memory-status alias
+    mkdir -p "$SKILLS_BASE/memory-status/scripts"
+    cat > "$SKILLS_BASE/memory-status/SKILL.md" << 'EOF'
+---
+name: memory-status
+description: Check Kiroku Memory system status. Usage: /memory-status
+---
+
+# Memory Status
+
+Check Kiroku Memory system status.
+
+## Usage
+
+```bash
+/memory-status
+```
+
+See [kiroku-memory](../kiroku-memory/SKILL.md) for full documentation.
+EOF
+    ln -sf "../../kiroku-memory/scripts/memory-status.py" "$SKILLS_BASE/memory-status/scripts/memory-status.py"
+
+    echo -e "${GREEN}✓ Alias skills created (remember, recall, forget, memory-status)${NC}"
 }
 
 # Configure hooks in settings.json
@@ -186,11 +292,11 @@ verify_installation() {
 
     local errors=0
 
-    # Check skill files
-    if [ -f "$SKILL_DIR/skill.md" ]; then
-        echo -e "  ${GREEN}✓${NC} skill.md"
+    # Check skill files (SKILL.md or skill.md)
+    if [ -f "$SKILL_DIR/SKILL.md" ] || [ -f "$SKILL_DIR/skill.md" ]; then
+        echo -e "  ${GREEN}✓${NC} SKILL.md"
     else
-        echo -e "  ${RED}✗${NC} skill.md missing"
+        echo -e "  ${RED}✗${NC} SKILL.md missing"
         errors=$((errors + 1))
     fi
 
@@ -243,11 +349,21 @@ print_usage() {
 uninstall() {
     echo "Uninstalling Kiroku Memory skill..."
 
+    SKILLS_BASE="$HOME/.claude/skills"
+
     # Remove skill directory
     if [ -d "$SKILL_DIR" ]; then
         rm -rf "$SKILL_DIR"
         echo -e "${GREEN}✓${NC} Removed $SKILL_DIR"
     fi
+
+    # Remove alias skills
+    for alias in remember recall forget memory-status; do
+        if [ -d "$SKILLS_BASE/$alias" ]; then
+            rm -rf "$SKILLS_BASE/$alias"
+            echo -e "${GREEN}✓${NC} Removed $SKILLS_BASE/$alias"
+        fi
+    done
 
     # Remove hooks from settings (manual step)
     echo ""
@@ -268,6 +384,7 @@ main() {
     check_deps
     detect_source
     install_skill
+    create_alias_skills
     configure_hooks
 
     if verify_installation; then

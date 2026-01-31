@@ -1,7 +1,7 @@
 services:
   postgres:
     image: pgvector/pgvector:pg16
-    container_name: memory-db
+    container_name: kiroku-memory-db
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
