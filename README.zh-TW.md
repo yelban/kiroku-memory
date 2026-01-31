@@ -42,11 +42,11 @@ flowchart TB
     subgraph KM["Kiroku Memory"]
         direction TB
 
-        Ingest["攝取<br/>(原始 Log)"] --> Extract["抽取<br/>(事實)"]
+        Ingest["攝取<br/>(原始 Log)"] --> Resources[("資源<br/>(不可變)")]
+
+        Resources --> Extract["抽取<br/>(事實)"]
         Extract --> Classify["分類<br/>(Category)"]
         Classify --> Conflict["衝突<br/>解決"]
-
-        Ingest --> Resources[("資源<br/>(不可變)")]
         Conflict --> Items[("項目<br/>(活躍)")]
 
         Items --> Embeddings["嵌入向量<br/>(pgvector)"]
