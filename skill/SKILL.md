@@ -84,6 +84,13 @@ git clone https://github.com/yelban/kiroku-memory.git
 cd kiroku-memory/skill/assets && ./install.sh
 ```
 
+The installer creates:
+- `~/.claude/skills/kiroku-memory/` - Main skill with scripts and hooks
+- `~/.claude/skills/remember/` - Alias for `/remember` command
+- `~/.claude/skills/recall/` - Alias for `/recall` command
+- `~/.claude/skills/forget/` - Alias for `/forget` command
+- `~/.claude/skills/memory-status/` - Alias for `/memory-status` command
+
 ## Prerequisites
 
 Kiroku Memory service must be running:

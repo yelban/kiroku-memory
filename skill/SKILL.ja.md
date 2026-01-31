@@ -90,6 +90,13 @@ npx openskills install yelban/kiroku-memory
 curl -fsSL https://raw.githubusercontent.com/yelban/kiroku-memory/main/skill/assets/install.sh | bash
 ```
 
+インストーラーが作成するもの：
+- `~/.claude/skills/kiroku-memory/` - メインスキル（スクリプトとフック）
+- `~/.claude/skills/remember/` - `/remember` コマンドエイリアス
+- `~/.claude/skills/recall/` - `/recall` コマンドエイリアス
+- `~/.claude/skills/forget/` - `/forget` コマンドエイリアス
+- `~/.claude/skills/memory-status/` - `/memory-status` コマンドエイリアス
+
 ## 前提条件
 
 Kiroku Memory サービスが起動している必要があります：

@@ -95,6 +95,13 @@ npx openskills install yelban/kiroku-memory
 curl -fsSL https://raw.githubusercontent.com/yelban/kiroku-memory/main/skill/assets/install.sh | bash
 ```
 
+安裝腳本會建立：
+- `~/.claude/skills/kiroku-memory/` - 主 skill（含腳本和 hooks）
+- `~/.claude/skills/remember/` - `/remember` 指令別名
+- `~/.claude/skills/recall/` - `/recall` 指令別名
+- `~/.claude/skills/forget/` - `/forget` 指令別名
+- `~/.claude/skills/memory-status/` - `/memory-status` 指令別名
+
 ## 功能特色
 
 - **自動載入**：SessionStart hook 自動注入記憶上下文
