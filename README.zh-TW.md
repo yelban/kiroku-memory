@@ -2,6 +2,10 @@
 
 > AI Agent 分層檢索記憶系統
 
+<p align="center">
+  <img src="cover.png" alt="Kiroku Memory" width="600">
+</p>
+
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-green.svg)](https://fastapi.tiangolo.com/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16+-blue.svg)](https://www.postgresql.org/)

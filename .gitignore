@@ -73,3 +73,7 @@ logs/
 
 # Packaged skills
 *.skill
+
+# Cover image generation preferences
+.baoyu-skills/
+prompts/
