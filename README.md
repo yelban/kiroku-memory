@@ -37,38 +37,24 @@ This system addresses these challenges with a **Hybrid Memory Stack** architectu
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        Kiroku Memory                             │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│  ┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐   │
-│  │  Ingest  │───▶│ Extract  │───▶│ Classify │───▶│ Conflict │   │
-│  │ (Raw Log)│    │ (Facts)  │    │(Category)│    │ Resolver │   │
-│  └──────────┘    └──────────┘    └──────────┘    └──────────┘   │
-│       │                                               │          │
-│       ▼                                               ▼          │
-│  ┌──────────┐                                   ┌──────────┐    │
-│  │Resources │                                   │  Items   │    │
-│  │(immutable)│                                  │ (active) │    │
-│  └──────────┘                                   └──────────┘    │
-│                                                      │           │
-│                    ┌─────────────────────────────────┤           │
-│                    │                                 │           │
-│                    ▼                                 ▼           │
-│              ┌──────────┐                     ┌──────────┐       │
-│              │Embeddings│                     │ Summary  │       │
-│              │(pgvector)│                     │ Builder  │       │
-│              └──────────┘                     └──────────┘       │
-│                    │                                 │           │
-│                    └─────────────┬───────────────────┘           │
-│                                  ▼                               │
-│                           ┌──────────┐                           │
-│                           │ Retrieve │                           │
-│                           │ (Tiered) │                           │
-│                           └──────────┘                           │
-│                                                                  │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph KM["Kiroku Memory"]
+        direction TB
+
+        Ingest["Ingest<br/>(Raw Log)"] --> Extract["Extract<br/>(Facts)"]
+        Extract --> Classify["Classify<br/>(Category)"]
+        Classify --> Conflict["Conflict<br/>Resolver"]
+
+        Ingest --> Resources[("Resources<br/>(immutable)")]
+        Conflict --> Items[("Items<br/>(active)")]
+
+        Items --> Embeddings["Embeddings<br/>(pgvector)"]
+        Items --> Summary["Summary<br/>Builder"]
+
+        Embeddings --> Retrieve["Retrieve<br/>(Tiered)"]
+        Summary --> Retrieve
+    end
 ```
 
 ## Quick Start
