@@ -1,0 +1,178 @@
+/* Kiroku Memory - Design System
+ * Based on DESIGN.md with expert reviews from:
+ * - Mike Stern (Apple HIG)
+ * - Rasmus Andersson (Inter)
+ * - Guillermo Rauch (Vercel)
+ */
+
+/* Inter Variable Font (Rasmus Andersson) - must be before @import "tailwindcss" */
+@import url("https://rsms.me/inter/inter.css");
+
+/* Tailwind v4 CSS-first configuration */
+@import "tailwindcss";
+
+/* Custom theme extending Tailwind */
+@theme {
+  /* Color palette from DESIGN.md */
+  --color-background: #0f172a;
+  --color-foreground: #f8fafc;
+  --color-card: #151921;
+  --color-card-foreground: #f8fafc;
+  --color-popover: #1e293b;
+  --color-popover-foreground: #f8fafc;
+
+  --color-primary: #22c55e;
+  --color-primary-foreground: #ffffff;
+
+  --color-secondary: #334155;
+  --color-secondary-foreground: #f8fafc;
+
+  --color-muted: #64748b;
+  --color-muted-foreground: #64748b;
+
+  --color-accent: #0a84ff;
+  --color-accent-foreground: #ffffff;
+
+  --color-destructive: #ef4444;
+  --color-destructive-foreground: #ffffff;
+
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
+  --color-info: #3b82f6;
+
+  /* Border: 12% opacity (Guillermo Rauch) */
+  --color-border: rgba(255, 255, 255, 0.12);
+  --color-input: rgba(255, 255, 255, 0.12);
+  --color-ring: #0a84ff;
+
+  /* Border radius */
+  --radius: 0.75rem;
+  --radius-lg: 0.75rem;
+  --radius-md: 0.5rem;
+  --radius-sm: 0.25rem;
+
+  /* Spacing (8px base) */
+  --spacing-px: 1px;
+  --spacing-0: 0px;
+  --spacing-0_5: 2px;
+  --spacing-1: 4px;
+  --spacing-1_5: 6px;
+  --spacing-2: 8px;
+  --spacing-2_5: 10px;
+  --spacing-3: 12px;
+  --spacing-3_5: 14px;
+  --spacing-4: 16px;
+  --spacing-5: 20px;
+  --spacing-6: 24px;
+  --spacing-7: 28px;
+  --spacing-8: 32px;
+  --spacing-9: 36px;
+  --spacing-10: 40px;
+  --spacing-11: 44px;
+  --spacing-12: 48px;
+
+  /* Font family */
+  --font-family-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, sans-serif;
+  --font-family-mono: "SF Mono", ui-monospace, "Cascadia Code", monospace;
+
+  /* Animation timing */
+  --duration-fast: 150ms;
+  --duration-normal: 200ms;
+  --duration-slow: 300ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Base styles */
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-family-sans);
+    /* OpenType features (Rasmus Andersson) */
+    font-feature-settings:
+      "ss01" on,
+      "ss02" on,
+      "cv01" on;
+  }
+
+  /* Focus ring (Guillermo Rauch) */
+  :focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+  }
+
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
+}
+
+/* Utility components */
+@layer components {
+  /* Traffic lights area (Mike Stern: 78px) */
+  .titlebar-drag {
+    -webkit-app-region: drag;
+  }
+
+  .titlebar-no-drag {
+    -webkit-app-region: no-drag;
+  }
+
+  /* Tabular nums for numbers (Rasmus Andersson) */
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Vibrancy effect (Mike Stern) */
+  .vibrancy {
+    background: rgba(21, 25, 33, 0.8);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+  }
+
+  /* Status pulse - only 3 times (Guillermo Rauch) */
+  .animate-pulse-3 {
+    animation: pulse-3 0.6s ease-in-out 3;
+  }
+
+  /* Fade in up animation */
+  .animate-fade-in-up {
+    animation: fade-in-up 0.3s var(--ease-out);
+  }
+}
+
+/* Keyframes */
+@keyframes pulse-3 {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

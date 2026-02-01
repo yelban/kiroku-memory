@@ -53,7 +53,7 @@ SURREAL_URL=file://./data/kiroku
 SURREAL_NAMESPACE=kiroku
 SURREAL_DATABASE=memory
 
-# Required for embeddings
+# Optional - only needed for semantic search (embeddings)
 OPENAI_API_KEY=sk-xxx
 ```
 
@@ -63,13 +63,14 @@ OPENAI_API_KEY=sk-xxx
 | Method | Path | Description |
 |--------|------|-------------|
 | POST | /ingest | Ingest raw messages |
+| POST | /v2/items | Store structured memory (no OpenAI needed) |
 | GET | /retrieve | Tiered retrieval |
 | GET | /context | Agent prompt context |
 
-### Intelligence
+### Intelligence (requires OpenAI)
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | /extract | Extract facts |
+| POST | /extract | Extract facts (requires OpenAI) |
 | POST | /summarize | Generate summaries |
 
 ### Maintenance

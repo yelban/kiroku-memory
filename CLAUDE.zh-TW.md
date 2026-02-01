@@ -50,7 +50,7 @@ SURREAL_URL=file://./data/kiroku
 SURREAL_NAMESPACE=kiroku
 SURREAL_DATABASE=memory
 
-# Embeddings 必填
+# 選用 - 僅語意搜尋需要
 OPENAI_API_KEY=sk-xxx
 ```
 
@@ -60,13 +60,14 @@ OPENAI_API_KEY=sk-xxx
 | Method | Path | 功能 |
 |--------|------|------|
 | POST | /ingest | 攝取原始訊息 |
+| POST | /v2/items | 儲存結構化記憶（不需 OpenAI）|
 | GET | /retrieve | Tiered 檢索 |
 | GET | /context | Agent prompt 上下文 |
 
-### 智慧功能
+### 智慧功能（需要 OpenAI）
 | Method | Path | 功能 |
 |--------|------|------|
-| POST | /extract | 抽取 facts |
+| POST | /extract | 抽取 facts（需要 OpenAI）|
 | POST | /summarize | 生成摘要 |
 
 ### 維護任務

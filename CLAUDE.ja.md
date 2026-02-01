@@ -50,7 +50,7 @@ SURREAL_URL=file://./data/kiroku
 SURREAL_NAMESPACE=kiroku
 SURREAL_DATABASE=memory
 
-# Embeddings 用（必須）
+# オプション - セマンティック検索のみ必要
 OPENAI_API_KEY=sk-xxx
 ```
 
@@ -60,13 +60,14 @@ OPENAI_API_KEY=sk-xxx
 | Method | Path | 説明 |
 |--------|------|------|
 | POST | /ingest | 生メッセージを取り込み |
+| POST | /v2/items | 構造化メモリを保存（OpenAI 不要）|
 | GET | /retrieve | 階層型検索 |
 | GET | /context | エージェントプロンプト用コンテキスト |
 
-### インテリジェンス
+### インテリジェンス（OpenAI 必要）
 | Method | Path | 説明 |
 |--------|------|------|
-| POST | /extract | facts を抽出 |
+| POST | /extract | facts を抽出（OpenAI 必要）|
 | POST | /summarize | サマリーを生成 |
 
 ### メンテナンス

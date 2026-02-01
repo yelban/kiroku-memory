@@ -5,6 +5,7 @@ from typing import Optional
 from uuid import UUID
 
 from fastapi import FastAPI, HTTPException, Depends
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -26,6 +27,15 @@ app = FastAPI(
     title="Kiroku Memory API",
     description="Tiered Retrieval Memory System for AI Agents",
     version="0.1.0",
+)
+
+# CORS middleware for Tauri desktop app
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allow all origins for local desktop app
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
@@ -157,42 +167,47 @@ async def retrieve_memory(
     limit: int = 20,
 ):
     """
-    Tiered memory retrieval.
+    Tiered memory retrieval (uses repository pattern for backend-agnostic access).
 
     Returns category summaries first (for quick context),
     then relevant items for drill-down.
     """
-    async with get_session() as session:
+    async with get_unit_of_work() as uow:
         # Get category summaries
-        cat_query = select(Category).order_by(Category.updated_at.desc())
+        all_categories = await uow.categories.list()
         if category:
-            cat_query = cat_query.where(Category.name == category)
-        cat_result = await session.execute(cat_query)
-        categories = list(cat_result.scalars().all())
+            all_categories = [c for c in all_categories if c.name == category]
 
         # Get active items
-        items_query = (
-            select(Item)
-            .where(Item.status == "active")
-            .order_by(Item.created_at.desc())
-            .limit(limit)
-        )
-        if category:
-            items_query = items_query.where(Item.category == category)
-        items_result = await session.execute(items_query)
-        items = list(items_result.scalars().all())
+        items = await uow.items.list(category=category, status="active", limit=limit)
 
         # Count total
-        count_query = select(func.count(Item.id)).where(Item.status == "active")
-        if category:
-            count_query = count_query.where(Item.category == category)
-        count_result = await session.execute(count_query)
-        total = count_result.scalar() or 0
+        total = await uow.items.count(category=category, status="active")
 
         return RetrievalResponse(
             query=query,
-            categories=categories,
-            items=items,
+            categories=[
+                CategoryOut(
+                    id=c.id,
+                    name=c.name,
+                    summary=c.summary,
+                    updated_at=c.updated_at,
+                )
+                for c in all_categories
+            ],
+            items=[
+                ItemOut(
+                    id=i.id,
+                    created_at=i.created_at,
+                    subject=i.subject,
+                    predicate=i.predicate,
+                    object=i.object,
+                    category=i.category,
+                    confidence=i.confidence,
+                    status=i.status,
+                )
+                for i in items
+            ],
             total_items=total,
         )
 
@@ -418,6 +433,54 @@ async def list_items_v2(
             )
             for e in entities
         ]
+
+
+class CreateItemRequest(BaseModel):
+    """Request to create a structured memory item directly (no LLM extraction needed)"""
+    subject: str = Field(..., description="What/who the fact is about")
+    predicate: str = Field(..., description="The relationship or action")
+    object: str = Field(..., description="The value or target")
+    category: Optional[str] = Field(None, description="Category name (preferences, facts, goals, etc.)")
+    confidence: float = Field(1.0, ge=0.0, le=1.0, description="Confidence score")
+
+
+@app.post("/v2/items", response_model=ItemOut, tags=["v2"])
+async def create_item_v2(request: CreateItemRequest):
+    """
+    Create a structured memory item directly.
+
+    This endpoint allows storing pre-extracted facts without requiring OpenAI API.
+    Useful for Claude Code integration where Claude does the extraction.
+    """
+    from uuid import uuid4
+    from datetime import datetime, timezone
+
+    async with get_unit_of_work() as uow:
+        now = datetime.now(timezone.utc)
+        entity = ItemEntity(
+            id=uuid4(),
+            created_at=now,
+            subject=request.subject,
+            predicate=request.predicate,
+            object=request.object,
+            category=request.category,
+            confidence=request.confidence,
+            status="active",
+        )
+
+        item_id = await uow.items.create(entity)
+        await uow.commit()
+
+        return ItemOut(
+            id=item_id,
+            created_at=now,
+            subject=request.subject,
+            predicate=request.predicate,
+            object=request.object,
+            category=request.category,
+            confidence=request.confidence,
+            status="active",
+        )
 
 
 @app.get("/v2/categories", response_model=list[CategoryOut], tags=["v2"])
