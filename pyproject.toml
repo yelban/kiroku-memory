@@ -26,6 +26,13 @@ dev = [
     "pytest-asyncio>=0.24.0",
     "httpx>=0.28.0",
 ]
+local-embeddings = [
+    "sentence-transformers>=3.0.0",
+    "torch>=2.0.0",
+]
+surrealdb = [
+    "surrealdb>=0.3.0",
+]
 
 [build-system]
 requires = ["hatchling"]

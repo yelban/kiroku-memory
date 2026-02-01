@@ -11,6 +11,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .db.database import get_session, init_db, close_db
 from .db.models import Resource, Item, Category
+from .db.repositories.factory import get_unit_of_work
+from .db.entities import ResourceEntity, ItemEntity, CategoryEntity
 from .ingest import ingest_message, get_resource, list_resources
 from .extract import extract_and_store, process_pending_resources
 from .classify import ensure_default_categories, classify_item
@@ -87,12 +89,24 @@ class RetrievalResponse(BaseModel):
 
 @app.on_event("startup")
 async def startup():
-    await init_db()
+    from .db.config import settings
+
+    if settings.backend == "surrealdb":
+        from .db.surrealdb import init_surreal_db
+        await init_surreal_db()
+    else:
+        await init_db()
 
 
 @app.on_event("shutdown")
 async def shutdown():
-    await close_db()
+    from .db.config import settings
+
+    if settings.backend == "surrealdb":
+        from .db.surrealdb import close_surreal_db
+        await close_surreal_db()
+    else:
+        await close_db()
 
 
 # ============ Endpoints ============
@@ -334,3 +348,111 @@ async def detailed_health():
     async with get_session() as session:
         status = await get_health_status(session)
         return status
+
+
+# ============ V2 Endpoints (Repository Pattern) ============
+
+@app.post("/v2/ingest", response_model=IngestResponse, tags=["v2"])
+async def ingest_v2_endpoint(request: IngestRequest):
+    """
+    Ingest a raw message into memory (v2 - uses repository pattern).
+
+    This endpoint uses the new repository pattern that supports
+    multiple backends (PostgreSQL, SurrealDB).
+    """
+    async with get_unit_of_work() as uow:
+        entity = ResourceEntity(
+            content=request.content,
+            source=request.source,
+            metadata=request.metadata or {},
+        )
+        resource_id = await uow.resources.create(entity)
+        resource = await uow.resources.get(resource_id)
+        return IngestResponse(
+            resource_id=resource_id,
+            created_at=resource.created_at,
+        )
+
+
+@app.get("/v2/resources", response_model=list[ResourceOut], tags=["v2"])
+async def list_resources_v2_endpoint(
+    source: Optional[str] = None,
+    since: Optional[datetime] = None,
+    limit: int = 100,
+):
+    """List raw resources (v2 - uses repository pattern)"""
+    async with get_unit_of_work() as uow:
+        entities = await uow.resources.list(source=source, since=since, limit=limit)
+        # Convert entities to response format
+        return [
+            ResourceOut(
+                id=e.id,
+                created_at=e.created_at,
+                source=e.source,
+                content=e.content,
+                metadata_=e.metadata,
+            )
+            for e in entities
+        ]
+
+
+@app.get("/v2/items", response_model=list[ItemOut], tags=["v2"])
+async def list_items_v2(
+    category: Optional[str] = None,
+    status: str = "active",
+    limit: int = 100,
+):
+    """List items with optional filters (v2 - uses repository pattern)"""
+    async with get_unit_of_work() as uow:
+        entities = await uow.items.list(category=category, status=status, limit=limit)
+        return [
+            ItemOut(
+                id=e.id,
+                created_at=e.created_at,
+                subject=e.subject,
+                predicate=e.predicate,
+                object=e.object,
+                category=e.category,
+                confidence=e.confidence,
+                status=e.status,
+            )
+            for e in entities
+        ]
+
+
+@app.get("/v2/categories", response_model=list[CategoryOut], tags=["v2"])
+async def list_categories_v2():
+    """List all categories with summaries (v2 - uses repository pattern)"""
+    async with get_unit_of_work() as uow:
+        entities = await uow.categories.list()
+        return [
+            CategoryOut(
+                id=e.id,
+                name=e.name,
+                summary=e.summary,
+                updated_at=e.updated_at,
+            )
+            for e in entities
+        ]
+
+
+@app.get("/v2/stats")
+async def stats_v2():
+    """Get memory statistics (v2 - uses repository pattern)"""
+    from .db.config import settings
+
+    async with get_unit_of_work() as uow:
+        total_items = await uow.items.count()
+        active_items = await uow.items.count(status="active")
+        archived_items = await uow.items.count(status="archived")
+        categories = await uow.categories.list()
+
+        return {
+            "backend": settings.backend,
+            "items": {
+                "total": total_items,
+                "active": active_items,
+                "archived": archived_items,
+            },
+            "categories": len(categories),
+        }

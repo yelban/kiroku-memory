@@ -12,24 +12,49 @@ An AI Agent long-term memory system based on Rohit's "How to Build an Agent That
 
 ## Quick Start
 
+### Option A: PostgreSQL (Production)
+
 ```bash
 # Start PostgreSQL + pgvector
 docker compose up -d
 
 # Start API
 uv run uvicorn kiroku_memory.api:app --reload
-
-# Health check
-curl http://localhost:8000/health
 ```
+
+### Option B: SurrealDB (Desktop/Embedded)
+
+```bash
+# Install SurrealDB dependency
+uv sync --extra surrealdb
+
+# Configure backend
+echo "BACKEND=surrealdb" >> .env
+
+# Start API (no Docker needed!)
+uv run uvicorn kiroku_memory.api:app --reload
+```
+
+See `docs/surrealdb-setup.md` for detailed setup guide.
 
 ## Environment Variables
 
 Copy `.env.example` to `.env` and configure:
 
-```
+```bash
+# Backend selection (postgres or surrealdb)
+BACKEND=postgres
+
+# PostgreSQL settings (when BACKEND=postgres)
 DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/memory
-OPENAI_API_KEY=sk-xxx  # Required
+
+# SurrealDB settings (when BACKEND=surrealdb)
+SURREAL_URL=file://./data/kiroku
+SURREAL_NAMESPACE=kiroku
+SURREAL_DATABASE=memory
+
+# Required for embeddings
+OPENAI_API_KEY=sk-xxx
 ```
 
 ## API Endpoints
@@ -110,34 +135,51 @@ See `docs/claude-code-integration.md` for details.
 - `docs/user-guide.md` - User guide
 - `docs/integration-guide.md` - Integration guide
 - `docs/claude-code-integration.md` - Claude Code integration guide
+- `docs/surrealdb-setup.md` - SurrealDB backend setup guide
+- `docs/surrealdb-migration-plan.md` - Dual-backend migration plan
 - `docs/renaming-changelog.md` - Renaming changelog
 
 ## Project Structure
 
 ```
 kiroku-memory/
-├── kiroku_memory/       # Core module
-│   ├── api.py           # FastAPI endpoints
-│   ├── ingest.py        # Resource ingestion
-│   ├── extract.py       # Fact extraction
-│   ├── classify.py      # Classifier
-│   ├── conflict.py      # Conflict resolution
-│   ├── summarize.py     # Summary generation
-│   ├── embedding.py     # Vector search
-│   ├── observability.py # Monitoring
-│   ├── db/              # Database
-│   └── jobs/            # Maintenance jobs
-├── tests/               # Tests
-├── docs/                # Documentation
-├── docker-compose.yml   # PostgreSQL config
-└── pyproject.toml       # Project config
+├── kiroku_memory/           # Core module
+│   ├── api.py               # FastAPI endpoints
+│   ├── ingest.py            # Resource ingestion
+│   ├── extract.py           # Fact extraction
+│   ├── classify.py          # Classifier
+│   ├── conflict.py          # Conflict resolution
+│   ├── summarize.py         # Summary generation
+│   ├── observability.py     # Monitoring
+│   ├── db/                  # Database layer
+│   │   ├── entities.py      # Domain entities (backend-agnostic)
+│   │   ├── repositories/    # Repository pattern
+│   │   │   ├── base.py      # Abstract interfaces
+│   │   │   ├── factory.py   # Backend selection
+│   │   │   ├── postgres/    # PostgreSQL implementation
+│   │   │   └── surrealdb/   # SurrealDB implementation
+│   │   └── surrealdb/       # SurrealDB module
+│   │       ├── connection.py
+│   │       └── schema.surql
+│   ├── embedding/           # Embedding providers
+│   │   ├── base.py          # Provider interface
+│   │   ├── factory.py       # Provider factory
+│   │   ├── openai_provider.py
+│   │   └── local_provider.py
+│   └── jobs/                # Maintenance jobs
+├── scripts/
+│   └── migrate_backend.py   # Backend migration CLI
+├── tests/                   # Tests
+├── docs/                    # Documentation
+├── docker-compose.yml       # PostgreSQL config
+└── pyproject.toml           # Project config
 ```
 
 ## Development
 
 - Language: Python 3.11+
 - Framework: FastAPI + SQLAlchemy 2.x
-- Database: PostgreSQL 16 + pgvector
+- Database: PostgreSQL 16 + pgvector OR SurrealDB (embedded)
 - Package Manager: uv
 - Testing: pytest + pytest-asyncio
 
