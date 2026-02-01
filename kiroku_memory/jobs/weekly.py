@@ -1,12 +1,9 @@
 """Weekly maintenance job - Compress old items, prune unused"""
 
-from datetime import datetime, timedelta
-from typing import Optional
+from datetime import datetime
 
-from sqlalchemy import select, func, and_
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from ..db.models import Item, Category, Resource
+from ..db.repositories.base import UnitOfWork
+from ..db.entities import ItemEntity
 
 
 # Time decay configuration
@@ -30,22 +27,20 @@ def time_decay_score(created_at: datetime, half_life_days: int = DEFAULT_HALF_LI
 
 
 async def apply_time_decay(
-    session: AsyncSession,
+    uow: UnitOfWork,
     half_life_days: int = DEFAULT_HALF_LIFE_DAYS,
 ) -> int:
     """
     Apply time decay to item confidence scores.
 
     Args:
-        session: Database session
+        uow: Unit of work
         half_life_days: Days until confidence halves
 
     Returns:
         Number of items updated
     """
-    query = select(Item).where(Item.status == "active")
-    result = await session.execute(query)
-    items = result.scalars().all()
+    items = await uow.items.list(status="active", limit=10000)
 
     updated = 0
     for item in items:
@@ -55,14 +50,14 @@ async def apply_time_decay(
         # Only update if significantly changed
         if abs(new_confidence - item.confidence) > 0.01:
             item.confidence = max(0.1, new_confidence)  # Minimum 0.1
+            await uow.items.update(item)
             updated += 1
 
-    await session.flush()
     return updated
 
 
 async def archive_old_items(
-    session: AsyncSession,
+    uow: UnitOfWork,
     max_age_days: int = MAX_AGE_DAYS,
     min_confidence: float = 0.2,
 ) -> int:
@@ -70,37 +65,25 @@ async def archive_old_items(
     Archive items that are too old and have low confidence.
 
     Args:
-        session: Database session
+        uow: Unit of work
         max_age_days: Maximum age before considering archival
         min_confidence: Items below this confidence get archived
 
     Returns:
         Number of items archived
     """
-    cutoff = datetime.utcnow() - timedelta(days=max_age_days)
-
-    query = select(Item).where(
-        and_(
-            Item.status == "active",
-            Item.created_at < cutoff,
-            Item.confidence < min_confidence,
-        )
-    )
-
-    result = await session.execute(query)
-    items = result.scalars().all()
+    items = await uow.items.list_old_low_confidence(max_age_days, min_confidence)
 
     archived = 0
     for item in items:
-        item.status = "archived"
+        await uow.items.update_status(item.id, "archived")
         archived += 1
 
-    await session.flush()
     return archived
 
 
 async def compress_similar_items(
-    session: AsyncSession,
+    uow: UnitOfWork,
     similarity_threshold: float = 0.9,
 ) -> int:
     """
@@ -111,47 +94,45 @@ async def compress_similar_items(
     Returns:
         Number of items compressed
     """
-    query = (
-        select(Item)
-        .where(Item.status == "active")
-        .order_by(Item.subject, Item.created_at.desc())
-    )
+    items = await uow.items.list(status="active", limit=10000)
 
-    result = await session.execute(query)
-    items = list(result.scalars().all())
+    # Sort by subject and created_at descending
+    items_sorted = sorted(items, key=lambda x: (x.subject or "", x.created_at), reverse=True)
 
     compressed = 0
     seen_by_subject = {}
 
-    for item in items:
-        if item.subject not in seen_by_subject:
-            seen_by_subject[item.subject] = []
+    for item in items_sorted:
+        subject = item.subject or ""
+        if subject not in seen_by_subject:
+            seen_by_subject[subject] = []
 
         # Check for similar items
         is_similar = False
-        for existing in seen_by_subject[item.subject]:
+        for existing in seen_by_subject[subject]:
             if _items_similar(existing, item, similarity_threshold):
                 # Archive the older/lower confidence one
                 if existing.confidence >= item.confidence:
-                    item.status = "archived"
+                    await uow.items.update_status(item.id, "archived")
                     existing.supersedes = item.id
+                    await uow.items.update(existing)
                 else:
-                    existing.status = "archived"
+                    await uow.items.update_status(existing.id, "archived")
                     item.supersedes = existing.id
-                    seen_by_subject[item.subject].remove(existing)
-                    seen_by_subject[item.subject].append(item)
+                    await uow.items.update(item)
+                    seen_by_subject[subject].remove(existing)
+                    seen_by_subject[subject].append(item)
                 compressed += 1
                 is_similar = True
                 break
 
         if not is_similar:
-            seen_by_subject[item.subject].append(item)
+            seen_by_subject[subject].append(item)
 
-    await session.flush()
     return compressed
 
 
-def _items_similar(item1: Item, item2: Item, threshold: float) -> bool:
+def _items_similar(item1: ItemEntity, item2: ItemEntity, threshold: float) -> bool:
     """Check if two items are similar enough to merge."""
     if item1.predicate != item2.predicate:
         return False
@@ -171,70 +152,40 @@ def _items_similar(item1: Item, item2: Item, threshold: float) -> bool:
 
 
 async def cleanup_orphaned_resources(
-    session: AsyncSession,
+    uow: UnitOfWork,
     max_age_days: int = 180,
 ) -> int:
     """
     Clean up old resources that have no associated items.
 
     Args:
-        session: Database session
+        uow: Unit of work
         max_age_days: Only clean resources older than this
 
     Returns:
         Number of resources deleted
     """
-    cutoff = datetime.utcnow() - timedelta(days=max_age_days)
-
-    # Find resources without items
-    subquery = select(Item.resource_id).where(Item.resource_id.isnot(None))
-    query = select(Resource).where(
-        and_(
-            ~Resource.id.in_(subquery),
-            Resource.created_at < cutoff,
-        )
-    )
-
-    result = await session.execute(query)
-    orphans = result.scalars().all()
-
-    deleted = 0
-    for resource in orphans:
-        await session.delete(resource)
-        deleted += 1
-
-    await session.flush()
-    return deleted
+    return await uow.resources.delete_orphaned(max_age_days)
 
 
-async def get_memory_stats(session: AsyncSession) -> dict:
+async def get_memory_stats(uow: UnitOfWork) -> dict:
     """Get current memory statistics."""
-    stats = {}
-
-    # Item counts by status
-    for status in ["active", "archived", "deleted"]:
-        count_query = select(func.count(Item.id)).where(Item.status == status)
-        result = await session.execute(count_query)
-        stats[f"items_{status}"] = result.scalar() or 0
+    stats = await uow.items.get_stats_by_status()
 
     # Resource count
-    resource_count = await session.execute(select(func.count(Resource.id)))
-    stats["resources"] = resource_count.scalar() or 0
+    stats["resources"] = await uow.resources.count()
 
     # Category count
-    cat_count = await session.execute(select(func.count(Category.id)))
-    stats["categories"] = cat_count.scalar() or 0
+    categories = await uow.categories.list()
+    stats["categories"] = len(categories)
 
     # Average confidence
-    avg_conf = await session.execute(
-        select(func.avg(Item.confidence)).where(Item.status == "active")
-    )
-    stats["avg_confidence"] = round(avg_conf.scalar() or 0, 3)
+    stats["avg_confidence"] = await uow.items.get_avg_confidence(status="active")
 
     return stats
 
 
-async def run_weekly_maintenance(session: AsyncSession) -> dict:
+async def run_weekly_maintenance(uow: UnitOfWork) -> dict:
     """
     Run weekly maintenance job.
 
@@ -249,22 +200,22 @@ async def run_weekly_maintenance(session: AsyncSession) -> dict:
     """
     stats = {
         "started_at": datetime.utcnow().isoformat(),
-        "before": await get_memory_stats(session),
+        "before": await get_memory_stats(uow),
     }
 
     # Step 1: Apply time decay
-    stats["decayed"] = await apply_time_decay(session)
+    stats["decayed"] = await apply_time_decay(uow)
 
     # Step 2: Archive old items
-    stats["archived"] = await archive_old_items(session)
+    stats["archived"] = await archive_old_items(uow)
 
     # Step 3: Compress similar
-    stats["compressed"] = await compress_similar_items(session)
+    stats["compressed"] = await compress_similar_items(uow)
 
     # Step 4: Cleanup orphans
-    stats["orphans_deleted"] = await cleanup_orphaned_resources(session)
+    stats["orphans_deleted"] = await cleanup_orphaned_resources(uow)
 
-    stats["after"] = await get_memory_stats(session)
+    stats["after"] = await get_memory_stats(uow)
     stats["completed_at"] = datetime.utcnow().isoformat()
 
     return stats

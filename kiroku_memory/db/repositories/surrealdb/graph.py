@@ -204,3 +204,71 @@ class SurrealGraphRepository(GraphRepository):
         )
 
         return count
+
+    async def list_all(self) -> list[GraphEdgeEntity]:
+        """List all graph edges"""
+        result = await self._client.query(
+            "SELECT * FROM graph_edge ORDER BY weight DESC",
+            {},
+        )
+
+        if result:
+            return [self._to_entity(r) for r in result]
+        return []
+
+    async def delete_all(self) -> int:
+        """Delete all edges, return count deleted"""
+        # First count
+        count_result = await self._client.query(
+            "SELECT count() FROM graph_edge GROUP ALL",
+            {},
+        )
+
+        count = count_result[0].get("count", 0) if count_result else 0
+
+        # Then delete
+        await self._client.query("DELETE FROM graph_edge", {})
+
+        return count
+
+    async def update_weight(
+        self, subject: str, predicate: str, obj: str, weight: float
+    ) -> bool:
+        """Update edge weight, return True if updated"""
+        # Check if exists first
+        check_result = await self._client.query(
+            """
+            SELECT count() FROM graph_edge
+            WHERE subject = $subject
+                AND predicate = $predicate
+                AND object = $obj
+            GROUP ALL
+            """,
+            {"subject": subject, "predicate": predicate, "obj": obj},
+        )
+
+        exists = check_result[0].get("count", 0) > 0 if check_result else False
+
+        if exists:
+            await self._client.query(
+                """
+                UPDATE graph_edge SET weight = $weight
+                WHERE subject = $subject
+                    AND predicate = $predicate
+                    AND object = $obj
+                """,
+                {"subject": subject, "predicate": predicate, "obj": obj, "weight": weight},
+            )
+            return True
+        return False
+
+    async def count(self) -> int:
+        """Count total edges"""
+        result = await self._client.query(
+            "SELECT count() FROM graph_edge GROUP ALL",
+            {},
+        )
+
+        if result:
+            return result[0].get("count", 0)
+        return 0

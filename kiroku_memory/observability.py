@@ -258,51 +258,34 @@ def track_errors(func: Callable):
 
 # ============ Health Check ============
 
-async def get_health_status(session) -> dict:
+async def get_health_status(uow) -> dict:
     """
     Get comprehensive health status.
 
     Args:
-        session: Database session
+        uow: Unit of work
 
     Returns:
         Health status dict
     """
-    from sqlalchemy import select, func, text
-    from .db.models import Item, Resource, Embedding
-
     status = {
         "status": "healthy",
         "timestamp": datetime.utcnow().isoformat(),
         "checks": {},
     }
 
-    # Database check
+    # Database/data check
     try:
-        await session.execute(text("SELECT 1"))
-        status["checks"]["database"] = {"status": "ok"}
-    except Exception as e:
-        status["checks"]["database"] = {"status": "error", "message": str(e)}
-        status["status"] = "unhealthy"
-
-    # Count checks
-    try:
-        items_result = await session.execute(
-            select(func.count(Item.id)).where(Item.status == "active")
-        )
-        active_items = items_result.scalar() or 0
-
-        resources_result = await session.execute(select(func.count(Resource.id)))
-        total_resources = resources_result.scalar() or 0
-
-        embeddings_result = await session.execute(select(func.count(Embedding.item_id)))
-        total_embeddings = embeddings_result.scalar() or 0
+        active_items = await uow.items.count(status="active")
+        total_resources = await uow.resources.count()
+        total_embeddings = await uow.embeddings.count()
 
         # Update gauges
         metrics.set_gauge("active_items", active_items)
         metrics.set_gauge("total_resources", total_resources)
         metrics.set_gauge("total_embeddings", total_embeddings)
 
+        status["checks"]["database"] = {"status": "ok"}
         status["checks"]["data"] = {
             "status": "ok",
             "active_items": active_items,
@@ -310,6 +293,8 @@ async def get_health_status(session) -> dict:
             "embeddings": total_embeddings,
         }
     except Exception as e:
+        status["checks"]["database"] = {"status": "error", "message": str(e)}
         status["checks"]["data"] = {"status": "error", "message": str(e)}
+        status["status"] = "unhealthy"
 
     return status

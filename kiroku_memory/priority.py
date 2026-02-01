@@ -246,3 +246,87 @@ async def record_category_access(
         session.add(access)
 
     await session.flush()
+
+
+# ============ UnitOfWork versions ============
+
+async def gather_category_stats_uow(
+    uow,
+    config: PriorityConfig = None,
+) -> list[CategoryStats]:
+    """
+    Gather statistics for all categories using UnitOfWork.
+
+    Args:
+        uow: Unit of work
+        config: Priority configuration
+
+    Returns:
+        List of CategoryStats for all categories with items
+    """
+    if config is None:
+        config = DEFAULT_PRIORITY_CONFIG
+
+    now = datetime.utcnow()
+    window_start = now - timedelta(days=config.usage_window_days)
+
+    # Get item counts per category
+    item_counts = await uow.categories.count_items_per_category(status="active")
+
+    # Get usage counts per category in rolling window
+    usage_counts = await uow.category_accesses.count_by_category(since=window_start)
+
+    # Get category metadata
+    categories_list = await uow.categories.list()
+    categories = {cat.name: cat for cat in categories_list}
+
+    # Get last item timestamp per category (approximate via most recent items)
+    # This is a simplification - for exact timestamps we'd need a new repository method
+    last_item_at = {}
+    for cat_name in item_counts.keys():
+        items = await uow.items.list(category=cat_name, status="active", limit=1)
+        if items:
+            last_item_at[cat_name] = items[0].created_at
+
+    # Combine all stats
+    all_category_names = set(item_counts.keys()) | set(categories.keys())
+    stats_list = []
+
+    for name in all_category_names:
+        item_count = item_counts.get(name, 0)
+        usage_count = usage_counts.get(name, 0)
+        cat = categories.get(name)
+        updated_at = cat.updated_at if cat else None
+
+        stats_list.append(CategoryStats(
+            name=name,
+            item_count=item_count,
+            last_item_at=last_item_at.get(name),
+            updated_at=updated_at,
+            usage_count=usage_count,
+        ))
+
+    return stats_list
+
+
+async def record_category_access_uow(
+    uow,
+    category_names: list[str],
+    source: str = "context",
+) -> None:
+    """
+    Record access events for categories using UnitOfWork.
+
+    Args:
+        uow: Unit of work
+        category_names: List of category names that were accessed
+        source: Source of access (e.g., "context", "recall", "api")
+    """
+    from .db.entities import CategoryAccessEntity
+
+    for name in category_names:
+        entity = CategoryAccessEntity(
+            category=name,
+            source=source,
+        )
+        await uow.category_accesses.create(entity)

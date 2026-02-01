@@ -40,6 +40,21 @@ class ResourceRepository(ABC):
         """List resources with optional filters"""
         ...
 
+    @abstractmethod
+    async def count(self) -> int:
+        """Count total resources"""
+        ...
+
+    @abstractmethod
+    async def delete_orphaned(self, max_age_days: int) -> int:
+        """Delete resources older than max_age_days with no associated items"""
+        ...
+
+    @abstractmethod
+    async def list_unextracted(self, limit: int = 100) -> list[ResourceEntity]:
+        """List resources that haven't been extracted yet"""
+        ...
+
 
 class ItemRepository(ABC):
     """Repository for atomic fact items"""
@@ -108,6 +123,53 @@ class ItemRepository(ABC):
         """Find items that may conflict with given subject/predicate"""
         ...
 
+    @abstractmethod
+    async def list_duplicates(self) -> list[tuple[ItemEntity, ItemEntity]]:
+        """Find duplicate items (same subject/predicate/object)"""
+        ...
+
+    @abstractmethod
+    async def count_by_subject_recent(self, subject: str, days: int) -> int:
+        """Count items with given subject created in last N days"""
+        ...
+
+    @abstractmethod
+    async def list_distinct_categories(self, status: str = "active") -> list[str]:
+        """List distinct category names for items with given status"""
+        ...
+
+    @abstractmethod
+    async def list_old_low_confidence(
+        self, max_age_days: int, min_confidence: float
+    ) -> list[ItemEntity]:
+        """List items older than max_age_days with confidence below min_confidence"""
+        ...
+
+    @abstractmethod
+    async def get_stats_by_status(self) -> dict[str, int]:
+        """Get item counts grouped by status"""
+        ...
+
+    @abstractmethod
+    async def get_avg_confidence(self, status: str = "active") -> float:
+        """Get average confidence for items with given status"""
+        ...
+
+    @abstractmethod
+    async def list_all_ids(self, status: str = "active") -> list[UUID]:
+        """List all item IDs with given status"""
+        ...
+
+    @abstractmethod
+    async def list_archived(self, limit: int = 100) -> list[ItemEntity]:
+        """List archived items"""
+        ...
+
+    @abstractmethod
+    async def get_superseding_item(self, archived_id: UUID) -> Optional[ItemEntity]:
+        """Get the active item that supersedes an archived item"""
+        ...
+
 
 class CategoryRepository(ABC):
     """Repository for category summaries"""
@@ -140,6 +202,11 @@ class CategoryRepository(ABC):
     @abstractmethod
     async def upsert(self, entity: CategoryEntity) -> UUID:
         """Create or update category by name"""
+        ...
+
+    @abstractmethod
+    async def count_items_per_category(self, status: str = "active") -> dict[str, int]:
+        """Count items per category for given status"""
         ...
 
 
@@ -176,6 +243,28 @@ class GraphRepository(ABC):
         """Delete all edges from a subject, return count deleted"""
         ...
 
+    @abstractmethod
+    async def list_all(self) -> list[GraphEdgeEntity]:
+        """List all graph edges"""
+        ...
+
+    @abstractmethod
+    async def delete_all(self) -> int:
+        """Delete all edges, return count deleted"""
+        ...
+
+    @abstractmethod
+    async def update_weight(
+        self, subject: str, predicate: str, obj: str, weight: float
+    ) -> bool:
+        """Update edge weight, return True if updated"""
+        ...
+
+    @abstractmethod
+    async def count(self) -> int:
+        """Count total edges"""
+        ...
+
 
 class EmbeddingRepository(ABC):
     """Repository for vector embeddings and similarity search"""
@@ -209,6 +298,16 @@ class EmbeddingRepository(ABC):
     @abstractmethod
     async def batch_upsert(self, embeddings: dict[UUID, list[float]]) -> int:
         """Batch insert/update embeddings, return count"""
+        ...
+
+    @abstractmethod
+    async def count(self) -> int:
+        """Count total embeddings"""
+        ...
+
+    @abstractmethod
+    async def delete_stale(self, active_item_ids: list[UUID]) -> int:
+        """Delete embeddings not in active_item_ids list"""
         ...
 
 

@@ -6,10 +6,10 @@ from datetime import datetime
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import select, update
+from sqlalchemy import select, update, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...models import Category
+from ...models import Category, Item
 from ...entities import CategoryEntity
 from ..base import CategoryRepository
 
@@ -91,3 +91,13 @@ class PostgresCategoryRepository(CategoryRepository):
             return existing.id
         else:
             return await self.create(entity)
+
+    async def count_items_per_category(self, status: str = "active") -> dict[str, int]:
+        """Count items per category for given status"""
+        result = await self._session.execute(
+            select(Item.category, func.count(Item.id))
+            .where(Item.status == status)
+            .where(Item.category.isnot(None))
+            .group_by(Item.category)
+        )
+        return {row[0]: row[1] for row in result.all()}

@@ -4,11 +4,10 @@ from datetime import datetime
 from typing import Optional
 
 from openai import AsyncOpenAI
-from sqlalchemy import select, func
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from .db.config import settings
-from .db.models import Item, Category
+from .db.repositories.base import UnitOfWork
+from .db.entities import CategoryEntity
 
 
 _client: Optional[AsyncOpenAI] = None
@@ -34,7 +33,7 @@ Summary (2-4 sentences):"""
 
 
 async def build_category_summary(
-    session: AsyncSession,
+    uow: UnitOfWork,
     category_name: str,
     max_items: int = 50,
 ) -> str:
@@ -42,7 +41,7 @@ async def build_category_summary(
     Build or update summary for a category.
 
     Args:
-        session: Database session
+        uow: Unit of work
         category_name: Category to summarize
         max_items: Maximum items to include
 
@@ -50,16 +49,7 @@ async def build_category_summary(
         Generated summary text
     """
     # Get active items in category
-    query = (
-        select(Item)
-        .where(Item.category == category_name)
-        .where(Item.status == "active")
-        .order_by(Item.created_at.desc())
-        .limit(max_items)
-    )
-
-    result = await session.execute(query)
-    items = result.scalars().all()
+    items = await uow.items.list(category=category_name, status="active", limit=max_items)
 
     if not items:
         return f"No information available for {category_name}."
@@ -87,26 +77,21 @@ async def build_category_summary(
     summary = response.choices[0].message.content.strip()
 
     # Update or create category
-    cat_result = await session.execute(
-        select(Category).where(Category.name == category_name)
-    )
-    category = cat_result.scalar_one_or_none()
+    category = await uow.categories.get_by_name(category_name)
 
     if category:
-        category.summary = summary
-        category.updated_at = datetime.utcnow()
+        await uow.categories.update_summary(category_name, summary)
     else:
-        category = Category(
+        new_cat = CategoryEntity(
             name=category_name,
             summary=summary,
         )
-        session.add(category)
+        await uow.categories.create(new_cat)
 
-    await session.flush()
     return summary
 
 
-async def build_all_summaries(session: AsyncSession) -> dict[str, str]:
+async def build_all_summaries(uow: UnitOfWork) -> dict[str, str]:
     """
     Build summaries for all categories with items.
 
@@ -114,26 +99,18 @@ async def build_all_summaries(session: AsyncSession) -> dict[str, str]:
         Dict of category_name -> summary
     """
     # Get distinct categories with active items
-    query = (
-        select(Item.category)
-        .where(Item.status == "active")
-        .where(Item.category.isnot(None))
-        .distinct()
-    )
-
-    result = await session.execute(query)
-    categories = [row[0] for row in result.all()]
+    categories = await uow.items.list_distinct_categories(status="active")
 
     summaries = {}
     for cat_name in categories:
-        summary = await build_category_summary(session, cat_name)
+        summary = await build_category_summary(uow, cat_name)
         summaries[cat_name] = summary
 
     return summaries
 
 
 async def get_tiered_context(
-    session: AsyncSession,
+    uow: UnitOfWork,
     categories: Optional[list[str]] = None,
     max_items_per_category: int = 10,
     max_chars: Optional[int] = None,
@@ -147,7 +124,7 @@ async def get_tiered_context(
     Truncates by complete categories when max_chars is specified.
 
     Args:
-        session: Database session
+        uow: Unit of work
         categories: Optional list of categories to include
         max_items_per_category: Max recent items to show per category
         max_chars: Maximum characters (truncates by complete category)
@@ -157,14 +134,14 @@ async def get_tiered_context(
         Formatted context string
     """
     from .priority import (
-        gather_category_stats,
+        gather_category_stats_uow,
         sort_categories_by_priority,
-        record_category_access,
+        record_category_access_uow,
         DEFAULT_PRIORITY_CONFIG,
     )
 
     # Get category stats for priority sorting
-    all_stats = await gather_category_stats(session, DEFAULT_PRIORITY_CONFIG)
+    all_stats = await gather_category_stats_uow(uow, DEFAULT_PRIORITY_CONFIG)
     sorted_stats = sort_categories_by_priority(all_stats, DEFAULT_PRIORITY_CONFIG)
 
     # Filter if specific categories requested
@@ -175,9 +152,8 @@ async def get_tiered_context(
         return "No memory context available."
 
     # Get category objects
-    cat_query = select(Category)
-    cat_result = await session.execute(cat_query)
-    cats_by_name = {cat.name: cat for cat in cat_result.scalars()}
+    all_categories = await uow.categories.list()
+    cats_by_name = {cat.name: cat for cat in all_categories}
 
     # Default summaries to detect if summarize has been run
     default_summaries = {
@@ -196,15 +172,11 @@ async def get_tiered_context(
         cat = cats_by_name.get(stats.name)
 
         # Get recent items for this category
-        items_query = (
-            select(Item)
-            .where(Item.category == stats.name)
-            .where(Item.status == "active")
-            .order_by(Item.created_at.desc())
-            .limit(max_items_per_category)
+        items = await uow.items.list(
+            category=stats.name,
+            status="active",
+            limit=max_items_per_category,
         )
-        items_result = await session.execute(items_query)
-        items = items_result.scalars().all()
 
         # Check if summary is default (not yet summarized)
         summary = cat.summary if cat else None
@@ -250,12 +222,12 @@ async def get_tiered_context(
 
     # Record access for included categories
     if record_access and included_categories:
-        await record_category_access(session, included_categories, source="context")
+        await record_category_access_uow(uow, included_categories, source="context")
 
     return "\n".join(result_parts)
 
 
-async def get_category_stats(session: AsyncSession) -> dict[str, dict]:
+async def get_category_stats(uow: UnitOfWork) -> dict[str, dict]:
     """
     Get statistics for each category.
 
@@ -263,20 +235,10 @@ async def get_category_stats(session: AsyncSession) -> dict[str, dict]:
         Dict of category_name -> {count, latest_update}
     """
     # Count active items per category
-    count_query = (
-        select(Item.category, func.count(Item.id))
-        .where(Item.status == "active")
-        .where(Item.category.isnot(None))
-        .group_by(Item.category)
-    )
-
-    count_result = await session.execute(count_query)
-    counts = {row[0]: row[1] for row in count_result.all()}
+    counts = await uow.categories.count_items_per_category(status="active")
 
     # Get category info
-    cat_query = select(Category)
-    cat_result = await session.execute(cat_query)
-    categories = cat_result.scalars().all()
+    categories = await uow.categories.list()
 
     stats = {}
     for cat in categories:

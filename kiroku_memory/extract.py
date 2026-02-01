@@ -5,10 +5,10 @@ from uuid import UUID
 
 from openai import AsyncOpenAI
 from pydantic import BaseModel
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from .db.config import settings
-from .db.models import Item, Resource
+from .db.repositories.base import UnitOfWork
+from .db.entities import ItemEntity
 
 
 # Initialize OpenAI client (lazy)
@@ -92,21 +92,21 @@ async def extract_facts(text: str) -> list[ExtractedFact]:
 
 
 async def extract_and_store(
-    session: AsyncSession,
+    uow: UnitOfWork,
     resource_id: UUID,
 ) -> list[UUID]:
     """
     Extract facts from a resource and store as items.
 
     Args:
-        session: Database session
+        uow: Unit of work
         resource_id: UUID of resource to extract from
 
     Returns:
         List of created item UUIDs
     """
     # Get resource
-    resource = await session.get(Resource, resource_id)
+    resource = await uow.resources.get(resource_id)
     if not resource:
         raise ValueError(f"Resource {resource_id} not found")
 
@@ -114,9 +114,9 @@ async def extract_and_store(
     facts = await extract_facts(resource.content)
 
     # Create items
-    item_ids = []
+    entities = []
     for fact in facts:
-        item = Item(
+        entity = ItemEntity(
             resource_id=resource_id,
             subject=fact.subject,
             predicate=fact.predicate,
@@ -125,45 +125,36 @@ async def extract_and_store(
             confidence=fact.confidence,
             status="active",
         )
-        session.add(item)
-        await session.flush()
-        item_ids.append(item.id)
+        entities.append(entity)
 
-    return item_ids
+    if entities:
+        item_ids = await uow.items.create_many(entities)
+        return item_ids
+
+    return []
 
 
 async def process_pending_resources(
-    session: AsyncSession,
+    uow: UnitOfWork,
     limit: int = 100,
 ) -> int:
     """
     Process resources that haven't been extracted yet.
 
     Args:
-        session: Database session
+        uow: Unit of work
         limit: Maximum resources to process
 
     Returns:
         Number of resources processed
     """
-    from sqlalchemy import select, exists
-
     # Find resources without items
-    subquery = select(Item.resource_id).where(Item.resource_id.isnot(None))
-    query = (
-        select(Resource)
-        .where(~Resource.id.in_(subquery))
-        .order_by(Resource.created_at)
-        .limit(limit)
-    )
-
-    result = await session.execute(query)
-    resources = result.scalars().all()
+    resources = await uow.resources.list_unextracted(limit=limit)
 
     count = 0
     for resource in resources:
         try:
-            await extract_and_store(session, resource.id)
+            await extract_and_store(uow, resource.id)
             count += 1
         except Exception:
             pass

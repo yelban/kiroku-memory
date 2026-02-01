@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Sequence
 from uuid import UUID
 
-from sqlalchemy import select, delete, or_
+from sqlalchemy import select, delete, or_, func, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...models import GraphEdge
@@ -129,3 +129,33 @@ class PostgresGraphRepository(GraphRepository):
             delete(GraphEdge).where(GraphEdge.subject == subject)
         )
         return result.rowcount or 0
+
+    async def list_all(self) -> list[GraphEdgeEntity]:
+        """List all graph edges"""
+        result = await self._session.execute(
+            select(GraphEdge).order_by(GraphEdge.weight.desc())
+        )
+        return [self._to_entity(m) for m in result.scalars().all()]
+
+    async def delete_all(self) -> int:
+        """Delete all edges, return count deleted"""
+        result = await self._session.execute(delete(GraphEdge))
+        return result.rowcount or 0
+
+    async def update_weight(
+        self, subject: str, predicate: str, obj: str, weight: float
+    ) -> bool:
+        """Update edge weight, return True if updated"""
+        result = await self._session.execute(
+            update(GraphEdge)
+            .where(GraphEdge.subject == subject)
+            .where(GraphEdge.predicate == predicate)
+            .where(GraphEdge.object == obj)
+            .values(weight=weight)
+        )
+        return (result.rowcount or 0) > 0
+
+    async def count(self) -> int:
+        """Count total edges"""
+        result = await self._session.execute(select(func.count(GraphEdge.id)))
+        return result.scalar() or 0

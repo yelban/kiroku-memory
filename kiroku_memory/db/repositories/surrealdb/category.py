@@ -138,3 +138,18 @@ class SurrealCategoryRepository(CategoryRepository):
             return existing.id
         else:
             return await self.create(entity)
+
+    async def count_items_per_category(self, status: str = "active") -> dict[str, int]:
+        """Count items per category for given status"""
+        result = await self._client.query(
+            """
+            SELECT category, count() as cnt FROM item
+            WHERE status = $status AND category IS NOT NONE
+            GROUP BY category
+            """,
+            {"status": status},
+        )
+
+        if result:
+            return {r.get("category"): r.get("cnt", 0) for r in result if r.get("category")}
+        return {}

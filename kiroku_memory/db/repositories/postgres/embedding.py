@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import select, delete, text
+from sqlalchemy import select, delete, text, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...models import Item, Embedding
@@ -125,3 +125,20 @@ class PostgresEmbeddingRepository(EmbeddingRepository):
             await self.upsert(item_id, vector)
             count += 1
         return count
+
+    async def count(self) -> int:
+        """Count total embeddings"""
+        result = await self._session.execute(select(func.count(Embedding.item_id)))
+        return result.scalar() or 0
+
+    async def delete_stale(self, active_item_ids: list[UUID]) -> int:
+        """Delete embeddings not in active_item_ids list"""
+        if not active_item_ids:
+            # Delete all embeddings if no active items
+            result = await self._session.execute(delete(Embedding))
+            return result.rowcount or 0
+
+        result = await self._session.execute(
+            delete(Embedding).where(~Embedding.item_id.in_(active_item_ids))
+        )
+        return result.rowcount or 0

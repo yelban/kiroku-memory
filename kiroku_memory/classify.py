@@ -5,11 +5,10 @@ from typing import Optional
 from uuid import UUID
 
 from openai import AsyncOpenAI
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from .db.config import settings
-from .db.models import Item, Category
+from .db.repositories.base import UnitOfWork
+from .db.entities import ItemEntity, CategoryEntity
 
 
 # Default categories
@@ -46,19 +45,17 @@ Fact:
 Return only the category name, nothing else."""
 
 
-async def ensure_default_categories(session: AsyncSession) -> None:
+async def ensure_default_categories(uow: UnitOfWork) -> None:
     """Create default categories if they don't exist."""
     for name, summary in DEFAULT_CATEGORIES:
-        existing = await session.execute(
-            select(Category).where(Category.name == name)
-        )
-        if not existing.scalar_one_or_none():
-            category = Category(name=name, summary=summary)
-            session.add(category)
+        existing = await uow.categories.get_by_name(name)
+        if not existing:
+            category = CategoryEntity(name=name, summary=summary)
+            await uow.categories.create(category)
 
 
 async def classify_item(
-    session: AsyncSession,
+    uow: UnitOfWork,
     item_id: UUID,
     use_llm: bool = True,
 ) -> str:
@@ -66,14 +63,14 @@ async def classify_item(
     Classify an item into a category.
 
     Args:
-        session: Database session
+        uow: Unit of work
         item_id: UUID of item to classify
         use_llm: Whether to use LLM for classification
 
     Returns:
         Category name
     """
-    item = await session.get(Item, item_id)
+    item = await uow.items.get(item_id)
     if not item:
         raise ValueError(f"Item {item_id} not found")
 
@@ -82,7 +79,10 @@ async def classify_item(
 
     if not use_llm:
         # Simple rule-based classification
-        return _rule_based_classify(item)
+        category = _rule_based_classify(item)
+        item.category = category
+        await uow.items.update(item)
+        return category
 
     # LLM classification
     client = get_openai_client()
@@ -111,15 +111,14 @@ async def classify_item(
 
     # Update item
     item.category = category
-    await session.flush()
+    await uow.items.update(item)
 
     return category
 
 
-def _rule_based_classify(item: Item) -> str:
+def _rule_based_classify(item: ItemEntity) -> str:
     """Simple rule-based classification fallback."""
     predicate = (item.predicate or "").lower()
-    obj = (item.object or "").lower()
 
     if any(w in predicate for w in ["prefer", "like", "want", "use"]):
         return "preferences"
@@ -136,7 +135,7 @@ def _rule_based_classify(item: Item) -> str:
 
 
 async def reclassify_items(
-    session: AsyncSession,
+    uow: UnitOfWork,
     category: Optional[str] = None,
     limit: int = 100,
 ) -> int:
@@ -144,25 +143,21 @@ async def reclassify_items(
     Reclassify items that may have wrong categories.
 
     Args:
-        session: Database session
+        uow: Unit of work
         category: Only reclassify items in this category
         limit: Maximum items to process
 
     Returns:
         Number of items reclassified
     """
-    query = select(Item).where(Item.status == "active").limit(limit)
-    if category:
-        query = query.where(Item.category == category)
-
-    result = await session.execute(query)
-    items = result.scalars().all()
+    items = await uow.items.list(category=category, status="active", limit=limit)
 
     count = 0
     for item in items:
         old_category = item.category
         item.category = None  # Reset to force reclassification
-        new_category = await classify_item(session, item.id)
+        await uow.items.update(item)
+        new_category = await classify_item(uow, item.id)
         if new_category != old_category:
             count += 1
 

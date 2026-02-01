@@ -7,14 +7,9 @@ from uuid import UUID
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
-from sqlalchemy import select, func
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from .db.database import get_session, init_db, close_db
-from .db.models import Resource, Item, Category
+from .db.database import init_db, close_db
 from .db.repositories.factory import get_unit_of_work
 from .db.entities import ResourceEntity, ItemEntity, CategoryEntity
-from .ingest import ingest_message, get_resource, list_resources
 from .extract import extract_and_store, process_pending_resources
 from .classify import ensure_default_categories, classify_item
 from .conflict import auto_resolve_conflicts
@@ -124,14 +119,15 @@ async def shutdown():
 @app.post("/ingest", response_model=IngestResponse)
 async def ingest_endpoint(request: IngestRequest):
     """Ingest a raw message into memory"""
-    async with get_session() as session:
-        resource_id = await ingest_message(
-            session=session,
+    async with get_unit_of_work() as uow:
+        entity = ResourceEntity(
             content=request.content,
             source=request.source,
-            metadata=request.metadata,
+            metadata=request.metadata or {},
         )
-        resource = await get_resource(session, resource_id)
+        resource_id = await uow.resources.create(entity)
+        await uow.commit()
+        resource = await uow.resources.get(resource_id)
         return IngestResponse(
             resource_id=resource_id,
             created_at=resource.created_at,
@@ -145,19 +141,34 @@ async def list_resources_endpoint(
     limit: int = 100,
 ):
     """List raw resources"""
-    async with get_session() as session:
-        resources = await list_resources(session, source=source, since=since, limit=limit)
-        return resources
+    async with get_unit_of_work() as uow:
+        entities = await uow.resources.list(source=source, since=since, limit=limit)
+        return [
+            ResourceOut(
+                id=e.id,
+                created_at=e.created_at,
+                source=e.source,
+                content=e.content,
+                metadata_=e.metadata,
+            )
+            for e in entities
+        ]
 
 
 @app.get("/resources/{resource_id}", response_model=ResourceOut)
 async def get_resource_endpoint(resource_id: UUID):
     """Get a specific resource by ID"""
-    async with get_session() as session:
-        resource = await get_resource(session, resource_id)
-        if not resource:
+    async with get_unit_of_work() as uow:
+        entity = await uow.resources.get(resource_id)
+        if not entity:
             raise HTTPException(status_code=404, detail="Resource not found")
-        return resource
+        return ResourceOut(
+            id=entity.id,
+            created_at=entity.created_at,
+            source=entity.source,
+            content=entity.content,
+            metadata_=entity.metadata,
+        )
 
 
 @app.get("/retrieve", response_model=RetrievalResponse)
@@ -215,11 +226,17 @@ async def retrieve_memory(
 @app.get("/categories", response_model=list[CategoryOut])
 async def list_categories():
     """List all categories with summaries"""
-    async with get_session() as session:
-        result = await session.execute(
-            select(Category).order_by(Category.name)
-        )
-        return list(result.scalars().all())
+    async with get_unit_of_work() as uow:
+        entities = await uow.categories.list()
+        return [
+            CategoryOut(
+                id=e.id,
+                name=e.name,
+                summary=e.summary,
+                updated_at=e.updated_at,
+            )
+            for e in entities
+        ]
 
 
 @app.get("/health")
@@ -243,12 +260,13 @@ class ExtractResponse(BaseModel):
 @app.post("/extract", response_model=ExtractResponse)
 async def extract_endpoint(request: ExtractRequest):
     """Extract facts from a resource into items"""
-    async with get_session() as session:
-        item_ids = await extract_and_store(session, request.resource_id)
+    async with get_unit_of_work() as uow:
+        item_ids = await extract_and_store(uow, request.resource_id)
         # Auto-classify and resolve conflicts
         for item_id in item_ids:
-            await classify_item(session, item_id, use_llm=False)
-            await auto_resolve_conflicts(session, item_id)
+            await classify_item(uow, item_id, use_llm=False)
+            await auto_resolve_conflicts(uow, item_id)
+        await uow.commit()
         return ExtractResponse(
             resource_id=request.resource_id,
             items_created=len(item_ids),
@@ -259,17 +277,19 @@ async def extract_endpoint(request: ExtractRequest):
 @app.post("/process")
 async def process_endpoint(limit: int = 100):
     """Process pending resources (extract facts)"""
-    async with get_session() as session:
-        await ensure_default_categories(session)
-        count = await process_pending_resources(session, limit=limit)
+    async with get_unit_of_work() as uow:
+        await ensure_default_categories(uow)
+        count = await process_pending_resources(uow, limit=limit)
+        await uow.commit()
         return {"processed": count}
 
 
 @app.post("/summarize")
 async def summarize_endpoint():
     """Build summaries for all categories"""
-    async with get_session() as session:
-        summaries = await build_all_summaries(session)
+    async with get_unit_of_work() as uow:
+        summaries = await build_all_summaries(uow)
+        await uow.commit()
         return {"summaries": summaries}
 
 
@@ -290,14 +310,15 @@ async def context_endpoint(
         max_chars: Maximum characters (truncates by complete category, never mid-block)
         max_items_per_category: Max recent items per category (default: 10)
     """
-    async with get_session() as session:
+    async with get_unit_of_work() as uow:
         cat_list = categories.split(",") if categories else None
         context = await get_tiered_context(
-            session,
+            uow,
             cat_list,
             max_items_per_category=max_items_per_category,
             max_chars=max_chars,
         )
+        await uow.commit()
         return {"context": context}
 
 
@@ -308,12 +329,21 @@ async def list_items(
     limit: int = 100,
 ):
     """List items with optional filters"""
-    async with get_session() as session:
-        query = select(Item).where(Item.status == status).order_by(Item.created_at.desc()).limit(limit)
-        if category:
-            query = query.where(Item.category == category)
-        result = await session.execute(query)
-        return list(result.scalars().all())
+    async with get_unit_of_work() as uow:
+        entities = await uow.items.list(category=category, status=status, limit=limit)
+        return [
+            ItemOut(
+                id=e.id,
+                created_at=e.created_at,
+                subject=e.subject,
+                predicate=e.predicate,
+                object=e.object,
+                category=e.category,
+                confidence=e.confidence,
+                status=e.status,
+            )
+            for e in entities
+        ]
 
 
 # ============ Phase 3: Maintenance Jobs ============
@@ -321,24 +351,27 @@ async def list_items(
 @app.post("/jobs/nightly")
 async def nightly_job():
     """Run nightly consolidation job"""
-    async with get_session() as session:
-        stats = await run_nightly_consolidation(session)
+    async with get_unit_of_work() as uow:
+        stats = await run_nightly_consolidation(uow)
+        await uow.commit()
         return stats
 
 
 @app.post("/jobs/weekly")
 async def weekly_job():
     """Run weekly maintenance job"""
-    async with get_session() as session:
-        stats = await run_weekly_maintenance(session)
+    async with get_unit_of_work() as uow:
+        stats = await run_weekly_maintenance(uow)
+        await uow.commit()
         return stats
 
 
 @app.post("/jobs/monthly")
 async def monthly_job():
     """Run monthly re-indexing job"""
-    async with get_session() as session:
-        stats = await run_monthly_reindex(session)
+    async with get_unit_of_work() as uow:
+        stats = await run_monthly_reindex(uow)
+        await uow.commit()
         return stats
 
 
@@ -360,8 +393,8 @@ async def reset_metrics():
 @app.get("/health/detailed")
 async def detailed_health():
     """Get detailed health status"""
-    async with get_session() as session:
-        status = await get_health_status(session)
+    async with get_unit_of_work() as uow:
+        status = await get_health_status(uow)
         return status
 
 

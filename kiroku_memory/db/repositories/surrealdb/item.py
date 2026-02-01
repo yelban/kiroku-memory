@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Optional, Sequence
 from uuid import UUID
 
@@ -293,3 +293,150 @@ class SurrealItemRepository(ItemRepository):
         if result:
             return [self._to_entity(r) for r in result]
         return []
+
+    async def list_duplicates(self) -> list[tuple[ItemEntity, ItemEntity]]:
+        """Find duplicate items (same subject/predicate/object)"""
+        result = await self._client.query(
+            """
+            SELECT * FROM item
+            WHERE status = 'active'
+            ORDER BY subject, predicate, object, created_at
+            """,
+            {},
+        )
+
+        if not result:
+            return []
+
+        duplicates = []
+        seen = {}
+        for record in result:
+            entity = self._to_entity(record)
+            key = (entity.subject, entity.predicate, entity.object)
+            if key in seen:
+                duplicates.append((seen[key], entity))
+            else:
+                seen[key] = entity
+        return duplicates
+
+    async def count_by_subject_recent(self, subject: str, days: int) -> int:
+        """Count items with given subject created in last N days"""
+        cutoff = datetime.utcnow() - timedelta(days=days)
+
+        result = await self._client.query(
+            """
+            SELECT count() FROM item
+            WHERE subject = $subject
+                AND created_at > $cutoff
+                AND status = 'active'
+            GROUP ALL
+            """,
+            {"subject": subject, "cutoff": cutoff.isoformat()},
+        )
+
+        if result:
+            return result[0].get("count", 0)
+        return 0
+
+    async def list_distinct_categories(self, status: str = "active") -> list[str]:
+        """List distinct category names for items with given status"""
+        result = await self._client.query(
+            """
+            SELECT category FROM item
+            WHERE status = $status AND category IS NOT NONE
+            GROUP BY category
+            """,
+            {"status": status},
+        )
+
+        if result:
+            return [r.get("category") for r in result if r.get("category")]
+        return []
+
+    async def list_old_low_confidence(
+        self, max_age_days: int, min_confidence: float
+    ) -> list[ItemEntity]:
+        """List items older than max_age_days with confidence below min_confidence"""
+        cutoff = datetime.utcnow() - timedelta(days=max_age_days)
+
+        result = await self._client.query(
+            """
+            SELECT * FROM item
+            WHERE status = 'active'
+                AND created_at < $cutoff
+                AND confidence < $min_confidence
+            """,
+            {"cutoff": cutoff.isoformat(), "min_confidence": min_confidence},
+        )
+
+        if result:
+            return [self._to_entity(r) for r in result]
+        return []
+
+    async def get_stats_by_status(self) -> dict[str, int]:
+        """Get item counts grouped by status"""
+        stats = {}
+        for status in ["active", "archived", "deleted"]:
+            result = await self._client.query(
+                "SELECT count() FROM item WHERE status = $status GROUP ALL",
+                {"status": status},
+            )
+            stats[status] = result[0].get("count", 0) if result else 0
+        return stats
+
+    async def get_avg_confidence(self, status: str = "active") -> float:
+        """Get average confidence for items with given status"""
+        result = await self._client.query(
+            """
+            SELECT math::mean(confidence) AS avg FROM item
+            WHERE status = $status
+            GROUP ALL
+            """,
+            {"status": status},
+        )
+
+        if result:
+            return round(result[0].get("avg", 0.0) or 0.0, 3)
+        return 0.0
+
+    async def list_all_ids(self, status: str = "active") -> list[UUID]:
+        """List all item IDs with given status"""
+        result = await self._client.query(
+            "SELECT id FROM item WHERE status = $status",
+            {"status": status},
+        )
+
+        if result:
+            return [self._parse_record_id(r.get("id")) for r in result]
+        return []
+
+    async def list_archived(self, limit: int = 100) -> list[ItemEntity]:
+        """List archived items"""
+        result = await self._client.query(
+            """
+            SELECT * FROM item
+            WHERE status = 'archived'
+            ORDER BY created_at DESC
+            LIMIT $limit
+            """,
+            {"limit": limit},
+        )
+
+        if result:
+            return [self._to_entity(r) for r in result]
+        return []
+
+    async def get_superseding_item(self, archived_id: UUID) -> Optional[ItemEntity]:
+        """Get the active item that supersedes an archived item"""
+        result = await self._client.query(
+            """
+            SELECT * FROM item
+            WHERE supersedes = $archived_id AND status = 'active'
+            LIMIT 1
+            """,
+            {"archived_id": f"item:{archived_id}"},
+        )
+
+        if result:
+            return self._to_entity(result[0])
+        return None

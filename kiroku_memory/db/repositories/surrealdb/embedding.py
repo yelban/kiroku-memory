@@ -161,3 +161,55 @@ class SurrealEmbeddingRepository(EmbeddingRepository):
             await self.upsert(item_id, vector)
             count += 1
         return count
+
+    async def count(self) -> int:
+        """Count total embeddings (items with embedding field set)"""
+        result = await self._client.query(
+            "SELECT count() FROM item WHERE embedding IS NOT NONE GROUP ALL",
+            {},
+        )
+
+        if result:
+            return result[0].get("count", 0)
+        return 0
+
+    async def delete_stale(self, active_item_ids: list[UUID]) -> int:
+        """Delete embeddings not in active_item_ids list (set to null)"""
+        if not active_item_ids:
+            # Clear all embeddings if no active items
+            count_result = await self._client.query(
+                "SELECT count() FROM item WHERE embedding IS NOT NONE GROUP ALL",
+                {},
+            )
+            count = count_result[0].get("count", 0) if count_result else 0
+
+            await self._client.query(
+                "UPDATE item SET embedding = NONE, embedding_dim = NONE WHERE embedding IS NOT NONE",
+                {},
+            )
+            return count
+
+        # Convert UUIDs to record IDs
+        active_ids = [f"item:{item_id}" for item_id in active_item_ids]
+
+        # Count stale embeddings
+        count_result = await self._client.query(
+            """
+            SELECT count() FROM item
+            WHERE embedding IS NOT NONE AND id NOT IN $active_ids
+            GROUP ALL
+            """,
+            {"active_ids": active_ids},
+        )
+        count = count_result[0].get("count", 0) if count_result else 0
+
+        # Clear stale embeddings
+        await self._client.query(
+            """
+            UPDATE item SET embedding = NONE, embedding_dim = NONE
+            WHERE embedding IS NOT NONE AND id NOT IN $active_ids
+            """,
+            {"active_ids": active_ids},
+        )
+
+        return count

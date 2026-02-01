@@ -1,15 +1,13 @@
 """Conflict resolver - Detect and resolve contradicting facts"""
 
-from datetime import datetime
 from typing import Optional
 from uuid import UUID
 
 from openai import AsyncOpenAI
-from sqlalchemy import select, and_
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from .db.config import settings
-from .db.models import Item
+from .db.repositories.base import UnitOfWork
+from .db.entities import ItemEntity
 
 
 _client: Optional[AsyncOpenAI] = None
@@ -37,7 +35,7 @@ Fact 2:
 Answer only YES or NO."""
 
 
-async def check_conflict(item1: Item, item2: Item, use_llm: bool = True) -> bool:
+async def check_conflict(item1: ItemEntity, item2: ItemEntity, use_llm: bool = True) -> bool:
     """
     Check if two items conflict.
 
@@ -78,35 +76,29 @@ async def check_conflict(item1: Item, item2: Item, use_llm: bool = True) -> bool
 
 
 async def find_conflicts(
-    session: AsyncSession,
+    uow: UnitOfWork,
     item_id: UUID,
-) -> list[Item]:
+) -> list[ItemEntity]:
     """
     Find items that conflict with the given item.
 
     Args:
-        session: Database session
+        uow: Unit of work
         item_id: UUID of item to check
 
     Returns:
         List of conflicting items
     """
-    item = await session.get(Item, item_id)
+    item = await uow.items.get(item_id)
     if not item:
         return []
 
     # Find items with same subject and predicate
-    query = select(Item).where(
-        and_(
-            Item.id != item_id,
-            Item.subject == item.subject,
-            Item.predicate == item.predicate,
-            Item.status == "active",
-        )
+    candidates = await uow.items.find_potential_conflicts(
+        item.subject,
+        item.predicate,
+        exclude_id=item_id,
     )
-
-    result = await session.execute(query)
-    candidates = result.scalars().all()
 
     conflicts = []
     for candidate in candidates:
@@ -117,7 +109,7 @@ async def find_conflicts(
 
 
 async def resolve_conflict(
-    session: AsyncSession,
+    uow: UnitOfWork,
     new_item_id: UUID,
     old_item_id: UUID,
 ) -> None:
@@ -125,27 +117,26 @@ async def resolve_conflict(
     Resolve conflict by archiving old item and linking to new.
 
     Args:
-        session: Database session
+        uow: Unit of work
         new_item_id: UUID of new (winning) item
         old_item_id: UUID of old (losing) item
     """
-    old_item = await session.get(Item, old_item_id)
-    new_item = await session.get(Item, new_item_id)
+    old_item = await uow.items.get(old_item_id)
+    new_item = await uow.items.get(new_item_id)
 
     if not old_item or not new_item:
         raise ValueError("Item not found")
 
     # Archive old item
-    old_item.status = "archived"
+    await uow.items.update_status(old_item_id, "archived")
 
     # Link new item to old (supersedes)
     new_item.supersedes = old_item_id
-
-    await session.flush()
+    await uow.items.update(new_item)
 
 
 async def auto_resolve_conflicts(
-    session: AsyncSession,
+    uow: UnitOfWork,
     item_id: UUID,
     strategy: str = "recency",
 ) -> int:
@@ -158,7 +149,7 @@ async def auto_resolve_conflicts(
     - manual: Don't auto-resolve (returns 0)
 
     Args:
-        session: Database session
+        uow: Unit of work
         item_id: UUID of item to check
         strategy: Resolution strategy
 
@@ -168,59 +159,49 @@ async def auto_resolve_conflicts(
     if strategy == "manual":
         return 0
 
-    item = await session.get(Item, item_id)
+    item = await uow.items.get(item_id)
     if not item:
         return 0
 
-    conflicts = await find_conflicts(session, item_id)
+    conflicts = await find_conflicts(uow, item_id)
 
     resolved = 0
     for conflict in conflicts:
         if strategy == "recency":
             # Newer wins
             if item.created_at > conflict.created_at:
-                await resolve_conflict(session, item_id, conflict.id)
+                await resolve_conflict(uow, item_id, conflict.id)
             else:
-                await resolve_conflict(session, conflict.id, item_id)
+                await resolve_conflict(uow, conflict.id, item_id)
             resolved += 1
 
         elif strategy == "confidence":
             # Higher confidence wins
             if item.confidence >= conflict.confidence:
-                await resolve_conflict(session, item_id, conflict.id)
+                await resolve_conflict(uow, item_id, conflict.id)
             else:
-                await resolve_conflict(session, conflict.id, item_id)
+                await resolve_conflict(uow, conflict.id, item_id)
             resolved += 1
 
     return resolved
 
 
 async def list_archived_conflicts(
-    session: AsyncSession,
+    uow: UnitOfWork,
     limit: int = 100,
-) -> list[tuple[Item, Item]]:
+) -> list[tuple[ItemEntity, ItemEntity]]:
     """
     List archived items with their superseding items.
 
     Returns:
         List of (archived_item, superseding_item) tuples
     """
-    query = (
-        select(Item)
-        .where(Item.status == "archived")
-        .order_by(Item.created_at.desc())
-        .limit(limit)
-    )
-
-    result = await session.execute(query)
-    archived = result.scalars().all()
+    archived = await uow.items.list_archived(limit=limit)
 
     pairs = []
     for item in archived:
         # Find item that supersedes this one
-        superseding_query = select(Item).where(Item.supersedes == item.id)
-        superseding_result = await session.execute(superseding_query)
-        superseding = superseding_result.scalar_one_or_none()
+        superseding = await uow.items.get_superseding_item(item.id)
         if superseding:
             pairs.append((item, superseding))
 

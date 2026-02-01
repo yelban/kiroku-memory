@@ -120,3 +120,61 @@ class SurrealResourceRepository(ResourceRepository):
         if result:
             return [self._to_entity(r) for r in result]
         return []
+
+    async def count(self) -> int:
+        """Count total resources"""
+        result = await self._client.query(
+            "SELECT count() FROM resource GROUP ALL",
+            {},
+        )
+
+        if result:
+            return result[0].get("count", 0)
+        return 0
+
+    async def delete_orphaned(self, max_age_days: int) -> int:
+        """Delete resources older than max_age_days with no associated items"""
+        from datetime import timedelta
+
+        cutoff = datetime.utcnow() - timedelta(days=max_age_days)
+
+        # First count orphaned resources
+        count_result = await self._client.query(
+            """
+            SELECT count() FROM resource
+            WHERE created_at < $cutoff
+                AND id NOT IN (SELECT resource FROM item WHERE resource IS NOT NONE)
+            GROUP ALL
+            """,
+            {"cutoff": cutoff.isoformat()},
+        )
+
+        count = count_result[0].get("count", 0) if count_result else 0
+
+        # Then delete
+        await self._client.query(
+            """
+            DELETE FROM resource
+            WHERE created_at < $cutoff
+                AND id NOT IN (SELECT resource FROM item WHERE resource IS NOT NONE)
+            """,
+            {"cutoff": cutoff.isoformat()},
+        )
+
+        return count
+
+    async def list_unextracted(self, limit: int = 100) -> list[ResourceEntity]:
+        """List resources that haven't been extracted yet (no associated items)"""
+        result = await self._client.query(
+            """
+            SELECT * FROM resource
+            WHERE id NOT IN (SELECT resource FROM item WHERE resource IS NOT NONE)
+            ORDER BY created_at DESC
+            LIMIT $limit
+            """,
+            {"limit": limit},
+        )
+
+        if result:
+            return [self._to_entity(r) for r in result]
+        return []
