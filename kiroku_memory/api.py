@@ -489,7 +489,8 @@ async def create_item_v2(request: CreateItemRequest):
     from datetime import datetime, timezone
 
     async with get_unit_of_work() as uow:
-        now = datetime.now(timezone.utc)
+        # Use UTC time but remove tzinfo for PostgreSQL TIMESTAMP WITHOUT TIME ZONE
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
         entity = ItemEntity(
             id=uuid4(),
             created_at=now,

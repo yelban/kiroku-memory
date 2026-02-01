@@ -68,7 +68,11 @@ async def calculate_item_hotness(
     now = datetime.utcnow()
 
     # Recency score (exponential decay)
-    age_days = (now - item.created_at).days
+    # Ensure created_at is naive for comparison
+    created_at = item.created_at
+    if created_at.tzinfo is not None:
+        created_at = created_at.replace(tzinfo=None)
+    age_days = (now - created_at).days
     recency = 0.5 ** (age_days / 7)  # Half-life of 7 days
 
     # Related items score

@@ -22,6 +22,9 @@ def time_decay_score(created_at: datetime, half_life_days: int = DEFAULT_HALF_LI
     Returns:
         Decay score (0.0 - 1.0)
     """
+    # Ensure created_at is naive for comparison
+    if created_at.tzinfo is not None:
+        created_at = created_at.replace(tzinfo=None)
     age_days = (datetime.utcnow() - created_at).days
     return 0.5 ** (age_days / half_life_days)
 

@@ -98,10 +98,16 @@ def calculate_priority(
     # Use the most recent of updated_at and last_item_at
     last_update = stats.updated_at
     if stats.last_item_at:
-        if last_update is None or stats.last_item_at > last_update:
+        # Normalize both to naive datetime for comparison
+        last_item_naive = stats.last_item_at.replace(tzinfo=None) if stats.last_item_at.tzinfo else stats.last_item_at
+        last_update_naive = last_update.replace(tzinfo=None) if last_update and last_update.tzinfo else last_update
+        if last_update_naive is None or last_item_naive > last_update_naive:
             last_update = stats.last_item_at
 
     if last_update:
+        # Ensure both datetimes are naive for comparison
+        if last_update.tzinfo is not None:
+            last_update = last_update.replace(tzinfo=None)
         age_days = (now - last_update).total_seconds() / 86400
         recency_score = exp(-age_days / config.recency_half_life_days)
     else:

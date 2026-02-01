@@ -292,22 +292,168 @@ def time_decay_score(created_at, half_life_days=30):
     return 0.5 ** (age_days / half_life_days)
 ```
 
-## 6. 技術棧
+## 6. Repository Pattern 架構
+
+### 6.1 設計理念
+
+採用 Repository Pattern + Unit of Work 實現資料庫後端無關性：
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Application Layer                         │
+│  (api.py, jobs/nightly.py, jobs/weekly.py, jobs/monthly.py) │
+└────────────────────────────┬────────────────────────────────┘
+                             │
+                             ▼
+┌─────────────────────────────────────────────────────────────┐
+│                      Domain Entities                         │
+│  (ResourceEntity, ItemEntity, CategoryEntity, ...)          │
+└────────────────────────────┬────────────────────────────────┘
+                             │
+                             ▼
+┌─────────────────────────────────────────────────────────────┐
+│                   Repository Interfaces                      │
+│  (ResourceRepository, ItemRepository, CategoryRepository)    │
+└────────────────────────────┬────────────────────────────────┘
+                             │
+              ┌──────────────┴──────────────┐
+              ▼                             ▼
+┌─────────────────────────┐   ┌─────────────────────────┐
+│     PostgreSQL          │   │      SurrealDB          │
+│   Implementation        │   │    Implementation       │
+│  (SQLAlchemy 2.x)       │   │   (surrealdb.py)        │
+└─────────────────────────┘   └─────────────────────────┘
+```
+
+### 6.2 Repository 介面
+
+#### ItemRepository
+
+| 方法 | 說明 |
+|------|------|
+| `get(id)` | 取得單一 item |
+| `create(entity)` | 建立 item |
+| `create_many(entities)` | 批次建立 items |
+| `update(entity)` | 更新 item |
+| `update_status(id, status)` | 更新狀態 |
+| `list(category, status, limit)` | 列出 items |
+| `count(category, status)` | 計數 |
+| `find_potential_conflicts(subject, predicate, exclude_id)` | 尋找潛在衝突 |
+| `list_duplicates()` | 列出重複項 |
+| `count_by_subject_recent(subject, days)` | 計算近期主詞出現次數 |
+| `list_distinct_categories(status)` | 列出不同分類 |
+| `list_old_low_confidence(max_age_days, min_confidence)` | 列出舊的低信心項 |
+| `get_stats_by_status()` | 按狀態統計 |
+| `get_avg_confidence(status)` | 平均信心度 |
+| `list_all_ids(status)` | 列出所有 ID |
+| `list_archived(limit)` | 列出已封存項 |
+| `get_superseding_item(archived_id)` | 取得取代項 |
+
+#### ResourceRepository
+
+| 方法 | 說明 |
+|------|------|
+| `get(id)` | 取得單一 resource |
+| `create(entity)` | 建立 resource |
+| `list(source, since, limit)` | 列出 resources |
+| `count()` | 計數 |
+| `delete_orphaned(max_age_days)` | 刪除孤立資源 |
+| `list_unextracted(limit)` | 列出未萃取資源 |
+
+#### CategoryRepository
+
+| 方法 | 說明 |
+|------|------|
+| `get(id)` | 取得單一 category |
+| `get_by_name(name)` | 依名稱取得 |
+| `create(entity)` | 建立 category |
+| `upsert(entity)` | 建立或更新 |
+| `list()` | 列出所有 categories |
+| `count_items_per_category(status)` | 統計各分類項目數 |
+
+#### GraphRepository
+
+| 方法 | 說明 |
+|------|------|
+| `create(entity)` | 建立邊 |
+| `create_many(entities)` | 批次建立 |
+| `get_by_subject(subject)` | 依主詞取得 |
+| `get_neighbors(subject, depth)` | 取得鄰居節點 |
+| `delete_by_subject(subject)` | 依主詞刪除 |
+| `list_all()` | 列出所有邊 |
+| `delete_all()` | 刪除所有邊 |
+| `count()` | 計數 |
+| `update_weight(subject, predicate, object, weight)` | 更新權重 |
+
+#### EmbeddingRepository
+
+| 方法 | 說明 |
+|------|------|
+| `get(item_id)` | 取得 embedding |
+| `upsert(entity)` | 建立或更新 |
+| `search(embedding, limit, threshold)` | 向量搜尋 |
+| `delete(item_id)` | 刪除 |
+| `count()` | 計數 |
+| `delete_stale(active_item_ids)` | 刪除過時 embeddings |
+
+### 6.3 Unit of Work
+
+```python
+class UnitOfWork(ABC):
+    resources: ResourceRepository
+    items: ItemRepository
+    categories: CategoryRepository
+    graph: GraphRepository
+    embeddings: EmbeddingRepository
+    category_accesses: CategoryAccessRepository
+
+    async def commit(self) -> None: ...
+    async def rollback(self) -> None: ...
+```
+
+**使用範例**：
+
+```python
+async with get_unit_of_work() as uow:
+    # 建立 resource
+    resource_id = await uow.resources.create(entity)
+
+    # 建立 items
+    item_ids = await uow.items.create_many(items)
+
+    # 提交事務
+    await uow.commit()
+```
+
+### 6.4 後端選擇
+
+透過 `BACKEND` 環境變數選擇：
+
+```python
+# kiroku_memory/db/repositories/factory.py
+def get_unit_of_work() -> UnitOfWork:
+    if settings.backend == "surrealdb":
+        return SurrealUnitOfWork()
+    else:
+        return PostgresUnitOfWork()
+```
+
+## 7. 技術棧
 
 | 組件 | 技術選擇 | 理由 |
 |------|----------|------|
 | Language | Python 3.11+ | ML/NLP 生態系統完整 |
 | API | FastAPI | 高效能 async |
-| Database | PostgreSQL 16 | 成熟穩定 |
-| Vector | pgvector | 與 PostgreSQL 整合良好 |
-| ORM | SQLAlchemy 2.x | Async 支援完整 |
-| Migrations | Alembic | 標準選擇 |
+| Database | PostgreSQL 16 / SurrealDB | 雙後端支援 |
+| Vector | pgvector / SurrealDB builtin | 與主資料庫整合 |
+| ORM | SQLAlchemy 2.x | PostgreSQL 後端 |
+| Pattern | Repository + UnitOfWork | 後端無關抽象 |
 | Embeddings | OpenAI | text-embedding-3-small |
-| Queue | Redis (optional) | 未來擴展用 |
+| Desktop | Tauri v2 + React | 跨平台桌面應用 |
 
-## 7. API 設計
+## 8. API 設計
 
-### 7.1 核心端點
+### 8.1 核心端點
 
 | Method | Path | 功能 |
 |--------|------|------|
@@ -325,14 +471,14 @@ def time_decay_score(created_at, half_life_days=30):
 | max_chars | null | 最大字元數（按完整分類截斷） |
 | max_items_per_category | 10 | 每分類最多項目數 |
 
-### 7.2 Intelligence 端點
+### 8.2 Intelligence 端點
 
 | Method | Path | 功能 |
 |--------|------|------|
 | POST | /extract | 抽取 facts |
 | POST | /summarize | 建立摘要 |
 
-### 7.3 Maintenance 端點
+### 8.3 Maintenance 端點
 
 | Method | Path | 功能 |
 |--------|------|------|
@@ -340,7 +486,7 @@ def time_decay_score(created_at, half_life_days=30):
 | POST | /jobs/weekly | 每週維護 |
 | POST | /jobs/monthly | 每月維護 |
 
-### 7.4 Observability 端點
+### 8.4 Observability 端點
 
 | Method | Path | 功能 |
 |--------|------|------|
@@ -348,27 +494,27 @@ def time_decay_score(created_at, half_life_days=30):
 | GET | /health/detailed | 詳細健康狀態 |
 | GET | /metrics | 應用程式指標 |
 
-## 8. 擴展考量
+## 9. 擴展考量
 
-### 8.1 當前規模
+### 9.1 當前規模
 
 - 目標：1K - 100K messages
 - 單機部署足夠
 
-### 8.2 未來擴展
+### 9.2 未來擴展
 
 - **超過 100K**：考慮分層摘要（hierarchical summaries）
 - **多用戶**：加入 user_id 欄位隔離
 - **高併發**：改用 Redis 佇列處理 extraction
 - **分散式**：考慮 Qdrant 或 Pinecone 替代 pgvector
 
-## 9. 安全考量
+## 10. 安全考量
 
 - 敏感資訊過濾（未實作，需根據需求添加）
 - API key 環境變數管理
 - 無用戶認證（適用於內部服務）
 
-## 10. 參考資料
+## 11. 參考資料
 
 - Rohit's "How to Build an Agent That Never Forgets"
 - LC-OS / Rishi Sood's Context Engineering Papers
