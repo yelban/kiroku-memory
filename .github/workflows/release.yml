@@ -10,19 +10,36 @@ env:
   PBS_RELEASE: "20250115"
 
 jobs:
-  build-macos:
+  build:
     strategy:
       fail-fast: false
       matrix:
         include:
-          - target: aarch64-apple-darwin
+          # macOS
+          - os: macos-14
+            target: aarch64-apple-darwin
             arch: aarch64
-            runner: macos-14  # Apple Silicon
-          - target: x86_64-apple-darwin
+            platform: darwin
+            artifact_ext: dmg
+          - os: macos-13
+            target: x86_64-apple-darwin
             arch: x86_64
-            runner: macos-13  # Intel
+            platform: darwin
+            artifact_ext: dmg
+          # Windows
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            arch: x86_64
+            platform: windows
+            artifact_ext: msi
+          # Linux
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            arch: x86_64
+            platform: linux
+            artifact_ext: AppImage
 
-    runs-on: ${{ matrix.runner }}
+    runs-on: ${{ matrix.os }}
 
     steps:
       - name: Checkout
@@ -32,8 +49,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
-          cache-dependency-path: desktop/package-lock.json
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -45,42 +60,97 @@ jobs:
         with:
           workspaces: desktop/src-tauri
 
+      # Linux dependencies
+      - name: Install Linux dependencies
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libssl-dev
+
       - name: Install frontend dependencies
         working-directory: desktop
         run: npm ci
 
-      - name: Download python-build-standalone
+      # Download Python build standalone
+      - name: Download python-build-standalone (Unix)
+        if: matrix.platform != 'windows'
         run: |
           mkdir -p tools/packaging/.cache
-          PBS_FILENAME="cpython-${PYTHON_VERSION}+${PBS_RELEASE}-${{ matrix.arch }}-apple-darwin-install_only.tar.gz"
+          PBS_TRIPLE="${{ matrix.arch }}-${{ matrix.platform == 'darwin' && 'apple-darwin' || 'unknown-linux-gnu' }}"
+          PBS_FILENAME="cpython-${PYTHON_VERSION}+${PBS_RELEASE}-${PBS_TRIPLE}-install_only.tar.gz"
           PBS_URL="https://github.com/indygreg/python-build-standalone/releases/download/${PBS_RELEASE}/${PBS_FILENAME}"
           curl -L -o "tools/packaging/.cache/${PBS_FILENAME}" "${PBS_URL}"
 
-      - name: Build Python bundle
+      - name: Download python-build-standalone (Windows)
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path tools/packaging/.cache
+          $PBS_FILENAME = "cpython-${{ env.PYTHON_VERSION }}+${{ env.PBS_RELEASE }}-x86_64-pc-windows-msvc-install_only.tar.gz"
+          $PBS_URL = "https://github.com/indygreg/python-build-standalone/releases/download/${{ env.PBS_RELEASE }}/$PBS_FILENAME"
+          Invoke-WebRequest -Uri $PBS_URL -OutFile "tools/packaging/.cache/$PBS_FILENAME"
+
+      # Build Python bundle
+      - name: Build Python bundle (Unix)
+        if: matrix.platform != 'windows'
         run: |
           chmod +x tools/packaging/build-python.sh
-          tools/packaging/build-python.sh --arch ${{ matrix.arch }}
+          tools/packaging/build-python.sh --arch ${{ matrix.arch }} --platform ${{ matrix.platform }}
+          # Create 'current' symlink for Tauri resources
+          ln -sfn ${{ matrix.platform }}-${{ matrix.arch }} tools/packaging/dist/current
 
-      - name: Build Tauri app
+      - name: Build Python bundle (Windows)
+        if: matrix.platform == 'windows'
+        shell: bash
+        run: |
+          chmod +x tools/packaging/build-python.sh
+          tools/packaging/build-python.sh --arch ${{ matrix.arch }} --platform windows
+          # Create 'current' directory copy for Tauri resources (Windows doesn't support symlinks well)
+          cp -r tools/packaging/dist/windows-${{ matrix.arch }} tools/packaging/dist/current
+
+      # Build Tauri app
+      - name: Build Tauri app (Unix)
+        if: matrix.platform != 'windows'
         working-directory: desktop
         run: npm run tauri build -- --target ${{ matrix.target }}
 
-      - name: List build artifacts
-        run: |
-          echo "=== DMG files ==="
-          find desktop/src-tauri/target -name "*.dmg" -type f
-          echo "=== App bundles ==="
-          find desktop/src-tauri/target -name "*.app" -type d
+      - name: Build Tauri app (Windows)
+        if: matrix.platform == 'windows'
+        working-directory: desktop
+        run: npm run tauri build -- --target ${{ matrix.target }}
 
-      - name: Upload DMG artifact
+      # Upload artifacts
+      - name: Upload macOS DMG
+        if: matrix.platform == 'darwin'
         uses: actions/upload-artifact@v4
         with:
-          name: dmg-${{ matrix.arch }}
+          name: kiroku-memory-${{ matrix.platform }}-${{ matrix.arch }}
           path: desktop/src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg
           if-no-files-found: error
 
+      - name: Upload Windows MSI
+        if: matrix.platform == 'windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: kiroku-memory-${{ matrix.platform }}-${{ matrix.arch }}
+          path: desktop/src-tauri/target/${{ matrix.target }}/release/bundle/msi/*.msi
+          if-no-files-found: error
+
+      - name: Upload Linux AppImage
+        if: matrix.platform == 'linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: kiroku-memory-${{ matrix.platform }}-${{ matrix.arch }}
+          path: desktop/src-tauri/target/${{ matrix.target }}/release/bundle/appimage/*.AppImage
+          if-no-files-found: error
+
   publish-release:
-    needs: build-macos
+    needs: build
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -93,17 +163,22 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: artifacts
-          merge-multiple: true
 
       - name: List downloaded artifacts
         run: |
           echo "=== Downloaded artifacts ==="
-          find artifacts -type f -name "*.dmg"
+          find artifacts -type f \( -name "*.dmg" -o -name "*.msi" -o -name "*.AppImage" \)
+
+      - name: Flatten artifacts
+        run: |
+          mkdir -p release-files
+          find artifacts -type f \( -name "*.dmg" -o -name "*.msi" -o -name "*.AppImage" \) -exec cp {} release-files/ \;
+          ls -la release-files/
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          files: artifacts/*.dmg
+          files: release-files/*
           generate_release_notes: true
           draft: false
           prerelease: ${{ contains(github.ref_name, '-') }}

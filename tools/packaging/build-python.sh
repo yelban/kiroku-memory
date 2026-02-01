@@ -1,6 +1,7 @@
 #!/bin/bash
 # Build bundled Python runtime for Kiroku Memory Desktop App
 # Uses python-build-standalone: https://github.com/indygreg/python-build-standalone
+# Supports: macOS (aarch64, x86_64), Windows (x86_64), Linux (x86_64)
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -14,6 +15,7 @@ PBS_RELEASE="20250115"  # python-build-standalone release date
 # Parse arguments
 CLEAN_BUNDLE=true
 ARCH_OVERRIDE=""
+PLATFORM_OVERRIDE=""
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -25,10 +27,15 @@ while [[ $# -gt 0 ]]; do
             ARCH_OVERRIDE="$2"
             shift 2
             ;;
+        --platform)
+            PLATFORM_OVERRIDE="$2"
+            shift 2
+            ;;
         --help)
-            echo "Usage: $0 [--no-clean] [--arch aarch64|x86_64]"
+            echo "Usage: $0 [--no-clean] [--arch aarch64|x86_64] [--platform darwin|windows|linux]"
             echo "  --no-clean    Skip cleanup step (keep tests, docs, etc.)"
-            echo "  --arch        Force specific architecture"
+            echo "  --arch        Force specific architecture (aarch64, x86_64)"
+            echo "  --platform    Force specific platform (darwin, windows, linux)"
             exit 0
             ;;
         *)
@@ -37,6 +44,28 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+# Detect platform
+if [ -n "$PLATFORM_OVERRIDE" ]; then
+    PBS_PLATFORM="$PLATFORM_OVERRIDE"
+else
+    OS=$(uname -s)
+    case "$OS" in
+        Darwin)
+            PBS_PLATFORM="darwin"
+            ;;
+        Linux)
+            PBS_PLATFORM="linux"
+            ;;
+        MINGW*|MSYS*|CYGWIN*|Windows_NT)
+            PBS_PLATFORM="windows"
+            ;;
+        *)
+            echo "Error: Unsupported OS: $OS"
+            exit 1
+            ;;
+    esac
+fi
 
 # Detect architecture
 if [ -n "$ARCH_OVERRIDE" ]; then
@@ -47,7 +76,7 @@ else
         arm64|aarch64)
             PBS_ARCH="aarch64"
             ;;
-        x86_64)
+        x86_64|AMD64)
             PBS_ARCH="x86_64"
             ;;
         *)
@@ -57,19 +86,40 @@ else
     esac
 fi
 
-# Download URL
-PBS_FILENAME="cpython-${PYTHON_VERSION}+${PBS_RELEASE}-${PBS_ARCH}-apple-darwin-install_only.tar.gz"
+# Build platform-specific filename
+case "$PBS_PLATFORM" in
+    darwin)
+        PBS_TRIPLE="${PBS_ARCH}-apple-darwin"
+        PBS_EXT="tar.gz"
+        ;;
+    linux)
+        PBS_TRIPLE="${PBS_ARCH}-unknown-linux-gnu"
+        PBS_EXT="tar.gz"
+        ;;
+    windows)
+        PBS_TRIPLE="${PBS_ARCH}-pc-windows-msvc"
+        PBS_EXT="tar.gz"
+        ;;
+    *)
+        echo "Error: Unsupported platform: $PBS_PLATFORM"
+        exit 1
+        ;;
+esac
+
+PBS_FILENAME="cpython-${PYTHON_VERSION}+${PBS_RELEASE}-${PBS_TRIPLE}-install_only.${PBS_EXT}"
 PBS_URL="https://github.com/indygreg/python-build-standalone/releases/download/${PBS_RELEASE}/${PBS_FILENAME}"
 
 echo "=== Kiroku Memory Python Bundler ==="
 echo "Python version: $PYTHON_VERSION"
+echo "Platform: $PBS_PLATFORM"
 echo "Architecture: $PBS_ARCH"
-echo "Output: $OUTPUT_DIR/$PBS_ARCH"
+echo "Output: $OUTPUT_DIR/$PBS_PLATFORM-$PBS_ARCH"
 echo "Clean bundle: $CLEAN_BUNDLE"
 echo ""
 
 # Create output directory
-mkdir -p "$OUTPUT_DIR/$PBS_ARCH"
+OUTPUT_SUBDIR="$OUTPUT_DIR/$PBS_PLATFORM-$PBS_ARCH"
+mkdir -p "$OUTPUT_SUBDIR"
 
 # Download python-build-standalone if not cached
 CACHE_DIR="$SCRIPT_DIR/.cache"
@@ -85,13 +135,19 @@ fi
 
 # Extract
 echo "Extracting Python runtime..."
-rm -rf "$OUTPUT_DIR/$PBS_ARCH/python"
-mkdir -p "$OUTPUT_DIR/$PBS_ARCH"
-tar -xzf "$CACHED_FILE" -C "$OUTPUT_DIR/$PBS_ARCH"
+rm -rf "$OUTPUT_SUBDIR/python"
+mkdir -p "$OUTPUT_SUBDIR"
+tar -xzf "$CACHED_FILE" -C "$OUTPUT_SUBDIR"
 
 # The archive extracts to "python/" directory
-PYTHON_DIR="$OUTPUT_DIR/$PBS_ARCH/python"
-PYTHON_BIN="$PYTHON_DIR/bin/python3"
+PYTHON_DIR="$OUTPUT_SUBDIR/python"
+
+# Set Python binary path based on platform
+if [ "$PBS_PLATFORM" = "windows" ]; then
+    PYTHON_BIN="$PYTHON_DIR/python.exe"
+else
+    PYTHON_BIN="$PYTHON_DIR/bin/python3"
+fi
 
 # Verify Python works
 echo "Verifying Python..."
@@ -154,33 +210,56 @@ if [ "$CLEAN_BUNDLE" = true ]; then
     find "$PYTHON_DIR" -type d -name "doc" -exec rm -rf {} + 2>/dev/null || true
     find "$PYTHON_DIR" -type d -name "examples" -exec rm -rf {} + 2>/dev/null || true
 
-    # Remove pip cache
+    # Remove pip cache (platform-specific paths)
     echo "Removing pip cache..."
-    rm -rf "$PYTHON_DIR/lib/python3.11/site-packages/pip" 2>/dev/null || true
-    rm -rf "$PYTHON_DIR/lib/python3.11/site-packages/setuptools" 2>/dev/null || true
+    if [ "$PBS_PLATFORM" = "windows" ]; then
+        rm -rf "$PYTHON_DIR/Lib/site-packages/pip" 2>/dev/null || true
+        rm -rf "$PYTHON_DIR/Lib/site-packages/setuptools" 2>/dev/null || true
+    else
+        rm -rf "$PYTHON_DIR/lib/python3.11/site-packages/pip" 2>/dev/null || true
+        rm -rf "$PYTHON_DIR/lib/python3.11/site-packages/setuptools" 2>/dev/null || true
+    fi
 
     # Remove unnecessary include files
     echo "Removing include files..."
     rm -rf "$PYTHON_DIR/include" 2>/dev/null || true
+    rm -rf "$PYTHON_DIR/Include" 2>/dev/null || true
 
     # Remove share directory (man pages, etc.)
     echo "Removing share directory..."
     rm -rf "$PYTHON_DIR/share" 2>/dev/null || true
 
-    # Remove unused binaries (keep only python3 and pip3)
+    # Remove unused binaries (platform-specific)
     echo "Removing unused binaries..."
-    cd "$PYTHON_DIR/bin"
-    for f in *; do
-        case "$f" in
-            python3|python3.11|pip3|pip3.11|uvicorn)
-                # Keep these
-                ;;
-            *)
-                rm -f "$f" 2>/dev/null || true
-                ;;
-        esac
-    done
-    cd - > /dev/null
+    if [ "$PBS_PLATFORM" = "windows" ]; then
+        # Windows: executables are in root, keep python.exe and Scripts/
+        cd "$PYTHON_DIR"
+        for f in *.exe; do
+            case "$f" in
+                python.exe|pythonw.exe)
+                    # Keep these
+                    ;;
+                *)
+                    rm -f "$f" 2>/dev/null || true
+                    ;;
+            esac
+        done
+        cd - > /dev/null
+    else
+        # macOS/Linux: executables in bin/
+        cd "$PYTHON_DIR/bin"
+        for f in *; do
+            case "$f" in
+                python3|python3.11|pip3|pip3.11|uvicorn)
+                    # Keep these
+                    ;;
+                *)
+                    rm -f "$f" 2>/dev/null || true
+                    ;;
+            esac
+        done
+        cd - > /dev/null
+    fi
 
     # Verify imports still work after cleanup
     echo "Verifying imports after cleanup..."

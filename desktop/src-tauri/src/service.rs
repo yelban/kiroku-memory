@@ -155,8 +155,14 @@ pub fn get_python_paths(app: &AppHandle) -> anyhow::Result<(PathBuf, PathBuf)> {
 
     println!("[Service] Resource dir: {:?}", resource_dir);
 
+    // Platform-specific Python binary path
+    #[cfg(target_os = "windows")]
+    let python_binary_name = "python.exe";
+    #[cfg(not(target_os = "windows"))]
+    let python_binary_name = "bin/python3";
+
     // Check if bundled resources exist (production mode)
-    let bundled_python = resource_dir.join("python/bin/python3");
+    let bundled_python = resource_dir.join("python").join(python_binary_name);
     let bundled_app = resource_dir.join("app/kiroku_memory");
 
     if bundled_python.exists() && bundled_app.exists() {
@@ -175,6 +181,13 @@ pub fn get_python_paths(app: &AppHandle) -> anyhow::Result<(PathBuf, PathBuf)> {
             "x86_64"
         };
 
+        #[cfg(target_os = "macos")]
+        let platform = "darwin";
+        #[cfg(target_os = "linux")]
+        let platform = "linux";
+        #[cfg(target_os = "windows")]
+        let platform = "windows";
+
         // Navigate from resource_dir up to project root
         // In dev: resource_dir = .../desktop/src-tauri/target/debug/
         // project_root = .../kiroku-memory/
@@ -184,12 +197,13 @@ pub fn get_python_paths(app: &AppHandle) -> anyhow::Result<(PathBuf, PathBuf)> {
             .and_then(|p: &Path| p.parent()) // desktop
             .and_then(|p: &Path| p.parent()) // kiroku-memory
             .map(|p: &Path| p.to_path_buf())
-            .unwrap_or_else(|| PathBuf::from("/Users/orz99/zoo/kiroku-memory"));
+            .unwrap_or_else(|| PathBuf::from("."));
 
         let python_bin = project_root
             .join("tools/packaging/dist")
-            .join(arch)
-            .join("python/bin/python3");
+            .join(format!("{}-{}", platform, arch))
+            .join("python")
+            .join(python_binary_name);
 
         println!("[Service] Project root: {:?}", project_root);
         println!("[Service] Python bin: {:?}", python_bin);

@@ -26,7 +26,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["app", "dmg"],
+    "targets": "all",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -35,7 +35,7 @@
       "icons/icon.ico"
     ],
     "resources": {
-      "../../tools/packaging/dist/aarch64/python": "python",
+      "../../tools/packaging/dist/current/python": "python",
       "../../kiroku_memory": "app/kiroku_memory",
       "../../tools/packaging/entrypoints": "app/entrypoints"
     },
@@ -48,6 +48,18 @@
       "entitlements": null,
       "exceptionDomain": null,
       "signingIdentity": null
+    },
+    "windows": {
+      "wix": null,
+      "nsis": null
+    },
+    "linux": {
+      "appimage": {
+        "bundleMediaFramework": false
+      },
+      "deb": {
+        "depends": []
+      }
     }
   },
   "plugins": {
