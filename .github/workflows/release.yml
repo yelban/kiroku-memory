@@ -1,0 +1,111 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  PYTHON_VERSION: "3.11.11"
+  PBS_RELEASE: "20250115"
+
+jobs:
+  build-macos:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: aarch64-apple-darwin
+            arch: aarch64
+            runner: macos-14  # Apple Silicon
+          - target: x86_64-apple-darwin
+            arch: x86_64
+            runner: macos-13  # Intel
+
+    runs-on: ${{ matrix.runner }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: desktop/src-tauri
+
+      - name: Install frontend dependencies
+        working-directory: desktop
+        run: npm ci
+
+      - name: Download python-build-standalone
+        run: |
+          mkdir -p tools/packaging/.cache
+          PBS_FILENAME="cpython-${PYTHON_VERSION}+${PBS_RELEASE}-${{ matrix.arch }}-apple-darwin-install_only.tar.gz"
+          PBS_URL="https://github.com/indygreg/python-build-standalone/releases/download/${PBS_RELEASE}/${PBS_FILENAME}"
+          curl -L -o "tools/packaging/.cache/${PBS_FILENAME}" "${PBS_URL}"
+
+      - name: Build Python bundle
+        run: |
+          chmod +x tools/packaging/build-python.sh
+          tools/packaging/build-python.sh --arch ${{ matrix.arch }}
+
+      - name: Build Tauri app
+        working-directory: desktop
+        run: npm run tauri build -- --target ${{ matrix.target }}
+
+      - name: List build artifacts
+        run: |
+          echo "=== DMG files ==="
+          find desktop/src-tauri/target -name "*.dmg" -type f
+          echo "=== App bundles ==="
+          find desktop/src-tauri/target -name "*.app" -type d
+
+      - name: Upload DMG artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dmg-${{ matrix.arch }}
+          path: desktop/src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg
+          if-no-files-found: error
+
+  publish-release:
+    needs: build-macos
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: List downloaded artifacts
+        run: |
+          echo "=== Downloaded artifacts ==="
+          find artifacts -type f -name "*.dmg"
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*.dmg
+          generate_release_notes: true
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
