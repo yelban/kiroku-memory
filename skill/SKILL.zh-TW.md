@@ -1,171 +1,38 @@
 # Kiroku Memory
 
-> AI Agent 分層檢索記憶系統
-
-AI Agent 長期記憶系統，支援跨 session、跨專案的記憶管理。
+AI Agent 跨 session、跨專案記憶系統。
 
 ## 命令
 
-| 命令 | 說明 |
-|------|------|
-| `/remember <內容>` | 儲存記憶 |
-| `/recall <查詢>` | 搜尋記憶 |
-| `/forget <查詢>` | 刪除/封存記憶 |
-| `/memory-status` | 檢視記憶狀態 |
+透過 `scripts/` 執行：
 
-## 使用範例
-
-```bash
-# 儲存記憶
-/remember 用戶偏好深色模式
-
-# 儲存到特定分類
-/remember --category preferences 喜歡用 Neovim
-
-# 存為全域記憶
-/remember --global 暱稱叫吹吹
-
-# 搜尋記憶
-/recall 編輯器偏好
-
-# 取得完整上下文
-/recall --context
-
-# 檢視狀態
-/memory-status
-```
+| 命令 | 腳本 | 參數 |
+|------|------|------|
+| `/remember` | `remember.py` | `<內容> [--category CAT] [--global]` |
+| `/recall` | `recall.py` | `<查詢> [--context]` |
+| `/forget` | `forget.py` | `<查詢>` |
+| `/memory-status` | `memory-status.py` | (無) |
 
 ## 記憶範圍
 
-- **全域記憶** (`global:user`)：跨專案共享，如個人偏好
-- **專案記憶** (`project:<name>`)：專案特定，如架構決策
+- `global:user` — 跨專案（個人偏好）
+- `project:<name>` — 專案特定（架構決策）
 
-預設行為：
-- 在專案目錄 → 存到專案記憶
-- 無專案上下文 → 存到全域記憶
+預設：專案目錄 → 專案範圍；否則 → 全域範圍。
 
-## 分類
+## 分類（依優先級）
 
-| 分類 | 優先級 | 說明 |
-|------|--------|------|
-| `preferences` | 1.0 | 偏好設定（最高優先） |
-| `facts` | 0.9 | 事實資訊 |
-| `goals` | 0.7 | 目標計畫 |
-| `skills` | 0.6 | 技能專長 |
-| `relationships` | 0.5 | 人際關係 |
-| `events` | 0.4 | 事件活動（最低優先） |
+`preferences` (1.0) > `facts` (0.9) > `goals` (0.7) > `skills` (0.6) > `relationships` (0.5) > `events` (0.4)
 
-## 優先級排序與智慧截斷
+## Hooks
 
-### 混合優先級模型
+- **SessionStart**：透過 `/context` API 自動載入記憶
+- **Stop**：自動儲存重要內容（雙階段：regex + 非同步 LLM）
 
-分類按優先級排序，非字母順序：
-- **靜態權重**：上述定義的基礎優先級
-- **動態因子**：使用頻率 + 新鮮度
+## 參考文件
 
-```
-priority = static_weight × (1.0 + usage_weight × usage_score + recency_weight × recency_score)
-```
-
-### 智慧截斷
-
-當 context 超過上限（預設 2000 字元）時：
-- **永不在分類中間截斷**：寧可捨棄完整分類
-- **按優先級保留**：低優先級分類先被捨棄
-- **維持格式完整**：不會產生破損的 markdown
-
-## 前置需求
-
-Kiroku Memory 服務需執行中：
-
-```bash
-cd /path/to/kiroku-memory
-docker compose up -d
-uv run uvicorn kiroku_memory.api:app --reload
-```
-
-預設 API 位址：`http://localhost:8000`（可透過 `KIROKU_API` 環境變數覆蓋）
-
-## 安裝
-
-### 方式一：Plugin Marketplace（推薦）
-
-```bash
-# 1. 新增市集
-/plugin marketplace add https://github.com/yelban/kiroku-memory.git
-
-# 2. 安裝外掛
-/plugin install kiroku-memory
-```
-
-### 方式二：npx Skills CLI
-
-```bash
-npx skills add yelban/kiroku-memory
-# 或
-npx add-skill yelban/kiroku-memory
-# 或
-npx openskills install yelban/kiroku-memory
-```
-
-### 方式三：安裝腳本
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/yelban/kiroku-memory/main/skill/assets/install.sh | bash
-```
-
-安裝腳本會建立：
-- `~/.claude/skills/kiroku-memory/` - 主 skill（含腳本和 hooks）
-- `~/.claude/skills/remember/` - `/remember` 指令別名
-- `~/.claude/skills/recall/` - `/recall` 指令別名
-- `~/.claude/skills/forget/` - `/forget` 指令別名
-- `~/.claude/skills/memory-status/` - `/memory-status` 指令別名
-
-## 功能特色
-
-- **自動載入**：SessionStart hook 自動注入記憶上下文
-- **雙階段儲存**：Fast Path + Slow Path 混合架構
-- **去重複**：24 小時 TTL 防止重複儲存
-- **結論擷取**：從 Claude 回應中擷取關鍵結論
-
-## 自動儲存：雙階段記憶捕捉
-
-Stop Hook 採用**快思慢想**雙階段架構：
-
-### Phase 1: Fast Path (<1s, 同步)
-
-Regex 模式匹配，立即捕捉：
-
-| 模式類型 | 範例 |
-|---------|------|
-| 偏好 | `我喜歡...`、`偏好...` |
-| 決策 | `決定使用...`、`選擇...` |
-| 發現 | `發現...`、`解決方案是...` |
-| 學習 | `學到...`、`原因是...`、`問題在於...` |
-
-同時從 Claude 回應中擷取**結論標記**：
-- `解決方案`、`發現`、`結論`
-- `建議`、`根因`、`核心價值`
-
-### Phase 2: Slow Path (5-15s, 非同步)
-
-背景 LLM 分析，使用 Claude CLI：
-
-- 在脫離的 subprocess 中執行（不阻塞 Claude Code）
-- 分析最近 6 則 user + 4 則 assistant 訊息
-- 擷取最多 5 條記憶，含類型/信心度
-- 記憶類型：`discovery`、`decision`、`learning`、`preference`、`fact`
-- 日誌記錄於 `~/.cache/kiroku-memory/llm-worker.log`
-
-兩個階段共用 24 小時去重複快取。
-
-## 了解更多
-
-- [架構設計](docs/architecture.md)
-- [整合指南](docs/claude-code-integration.md)
-- [API 參考](docs/integration-guide.md)
-
-## 翻譯
-
-- [English](SKILL.md)
-- [日本語](SKILL.ja.md)
+- [API 規格](references/api-contract.md) — 端點規格
+- [記憶範圍](references/scopes.md) — 範圍解析邏輯
+- [過濾規則](references/filtering-rules.md) — 儲存條件
+- [檢索策略](references/retrieval-policy.md) — 優先級與截斷
+- [自動儲存](references/auto-save.md) — 雙階段記憶捕捉細節
