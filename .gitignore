@@ -71,6 +71,9 @@ Thumbs.db
 *.log
 logs/
 
+# SurrealDB data directory
+data/
+
 # Packaged skills
 *.skill
 
