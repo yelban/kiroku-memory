@@ -152,14 +152,19 @@ def extract_text_from_entry(entry: dict) -> str:
     return ""
 
 
-def parse_transcript(transcript_path: str) -> tuple[list, list]:
+def parse_transcript(transcript_path: str, offset: int = 0) -> tuple[list, list]:
     """Parse transcript and extract user/assistant messages.
+
+    Args:
+        transcript_path: Path to the transcript JSONL file
+        offset: Skip first N messages (for incremental processing)
 
     Returns:
         tuple: (user_messages, assistant_messages)
     """
     user_messages = []
     assistant_messages = []
+    message_count = 0
 
     try:
         with open(transcript_path) as f:
@@ -167,8 +172,17 @@ def parse_transcript(transcript_path: str) -> tuple[list, list]:
                 try:
                     entry = json.loads(line)
                     entry_type = entry.get("type", "")
-                    text = extract_text_from_entry(entry)
 
+                    if entry_type not in ("user", "assistant"):
+                        continue
+
+                    message_count += 1
+
+                    # Skip messages before offset (already processed)
+                    if message_count <= offset:
+                        continue
+
+                    text = extract_text_from_entry(entry)
                     if not text:
                         continue
 
@@ -335,17 +349,19 @@ def main():
     parser = argparse.ArgumentParser(description="LLM-based memory extraction")
     parser.add_argument("--transcript", required=True, help="Path to transcript JSONL")
     parser.add_argument("--source", required=True, help="Memory source (e.g., project:name)")
+    parser.add_argument("--offset", type=int, default=0, help="Skip first N messages (incremental)")
     args = parser.parse_args()
 
-    log(f"Starting LLM analysis for {args.source}")
+    mode = "incremental" if args.offset > 0 else "full"
+    log(f"Starting LLM analysis for {args.source} (mode={mode}, offset={args.offset})")
 
     # Validate transcript exists
     if not os.path.exists(args.transcript):
         log(f"Transcript not found: {args.transcript}")
         sys.exit(0)
 
-    # Parse transcript
-    user_messages, assistant_messages = parse_transcript(args.transcript)
+    # Parse transcript (with offset for incremental processing)
+    user_messages, assistant_messages = parse_transcript(args.transcript, args.offset)
 
     if not user_messages and not assistant_messages:
         log("No messages found in transcript")
