@@ -115,6 +115,8 @@ flowchart TB
 - Docker (for PostgreSQL + pgvector)
 - OpenAI API Key
 
+> **New to development?** See the [detailed installation guide](docs/installation-guide.md) with step-by-step instructions.
+
 ### Installation
 
 ```bash
@@ -512,6 +514,7 @@ def time_decay_score(created_at, half_life_days=30):
 
 ## Documentation
 
+- [Installation Guide](docs/installation-guide.md) - Step-by-step installation for beginners
 - [Architecture Design](docs/architecture.md) - System architecture and design decisions
 - [Development Journey](docs/development-journey.md) - From idea to implementation
 - [User Guide](docs/user-guide.md) - Comprehensive usage guide

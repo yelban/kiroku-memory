@@ -115,6 +115,8 @@ flowchart TB
 - Docker（用於 PostgreSQL + pgvector）
 - OpenAI API Key
 
+> **初次安裝？** 請參閱[詳細安裝指南](docs/installation-guide.zh-TW.md)，有完整的步驟說明。
+
 ### 安裝
 
 ```bash
@@ -519,6 +521,7 @@ def time_decay_score(created_at, half_life_days=30):
 
 ## 文件
 
+- [安裝指南](docs/installation-guide.zh-TW.md) - 適合初學者的詳細安裝步驟
 - [架構設計](docs/architecture.md) - 系統架構與設計決策
 - [開發歷程](docs/development-journey.md) - 從點子到實作
 - [使用者手冊](docs/user-guide.md) - 完整使用指南
