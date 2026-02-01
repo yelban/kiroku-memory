@@ -23,6 +23,7 @@ import hashlib
 import json
 import os
 import re
+import subprocess
 import sys
 import urllib.request
 import urllib.error
@@ -358,6 +359,34 @@ def ingest_memory(content: str, source: str, role: str = "user") -> bool:
         return False
 
 
+def spawn_llm_worker(transcript_path: str, source: str):
+    """Spawn async LLM worker for deep analysis (Phase 2).
+
+    The worker runs in background and does not block the hook.
+    """
+    try:
+        llm_script = Path(__file__).with_name("stop-hook-llm.py")
+
+        if not llm_script.exists():
+            return
+
+        # Spawn detached subprocess
+        subprocess.Popen(
+            [
+                sys.executable,
+                str(llm_script),
+                "--transcript", transcript_path,
+                "--source", source
+            ],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,  # Detach from parent
+        )
+    except Exception:
+        # Silently fail - don't block the hook
+        pass
+
+
 def main():
     try:
         # Read hook input
@@ -375,6 +404,7 @@ def main():
         # Load recent saves for deduplication
         recent = load_recent_saves()
 
+        # === Phase 1: Fast path (regex-based) ===
         # Extract saveable content (now includes assistant conclusions)
         candidates = extract_saveable_content(transcript_path)
 
@@ -387,6 +417,10 @@ def main():
             if ingest_memory(content, source, role):
                 mark_saved(content, source, recent)
                 saved_count += 1
+
+        # === Phase 2: Slow path (async LLM analysis) ===
+        # Spawn background worker for deep analysis
+        spawn_llm_worker(transcript_path, source)
 
         # Silent success
         sys.exit(0)
