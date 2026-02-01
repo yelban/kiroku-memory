@@ -149,7 +149,9 @@ class SurrealItemRepository(ItemRepository):
 
     async def update(self, entity: ItemEntity) -> None:
         """Update an existing item"""
-        record_id = f"item:{entity.id}"
+        from surrealdb import RecordID
+
+        record_id = RecordID("item", str(entity.id))
 
         content = {
             "subject": entity.subject,
@@ -161,7 +163,7 @@ class SurrealItemRepository(ItemRepository):
         }
 
         if entity.supersedes:
-            content["supersedes"] = f"item:{entity.supersedes}"
+            content["supersedes"] = RecordID("item", str(entity.supersedes))
 
         await self._client.query(
             "UPDATE $id MERGE $content",
@@ -170,7 +172,9 @@ class SurrealItemRepository(ItemRepository):
 
     async def update_status(self, item_id: UUID, status: str) -> None:
         """Update item status"""
-        record_id = f"item:{item_id}"
+        from surrealdb import RecordID
+
+        record_id = RecordID("item", str(item_id))
 
         await self._client.query(
             "UPDATE $id SET status = $status",

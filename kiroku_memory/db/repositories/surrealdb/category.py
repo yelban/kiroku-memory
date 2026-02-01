@@ -19,12 +19,19 @@ class SurrealCategoryRepository(CategoryRepository):
     def __init__(self, client: "AsyncSurreal"):
         self._client = client
 
-    def _parse_record_id(self, record_id: str | dict) -> UUID:
-        """Extract UUID from SurrealDB record ID"""
+    def _parse_record_id(self, record_id) -> UUID:
+        """Extract UUID from SurrealDB record ID (RecordID object or string)"""
+        # Handle RecordID object from surrealdb SDK
+        if hasattr(record_id, "id") and hasattr(record_id, "table_name"):
+            return UUID(str(record_id.id))
+        # Handle dict with 'id' key
         if isinstance(record_id, dict):
-            record_id = record_id.get("id", "")
+            return self._parse_record_id(record_id.get("id", ""))
+        # Handle string format 'table:uuid'
         if isinstance(record_id, str) and ":" in record_id:
-            return UUID(record_id.split(":", 1)[1])
+            uuid_part = record_id.split(":", 1)[1]
+            uuid_part = uuid_part.strip("⟨⟩<>")
+            return UUID(uuid_part)
         return UUID(str(record_id))
 
     def _to_entity(self, record: dict) -> CategoryEntity:
@@ -46,7 +53,15 @@ class SurrealCategoryRepository(CategoryRepository):
 
     async def create(self, entity: CategoryEntity) -> UUID:
         """Create a new category"""
-        record_id = f"category:{entity.id}"
+        from datetime import timezone
+        from surrealdb import RecordID
+
+        record_id = RecordID("category", str(entity.id))
+
+        # Ensure datetime has timezone for SurrealDB
+        updated_at = entity.updated_at
+        if updated_at.tzinfo is None:
+            updated_at = updated_at.replace(tzinfo=timezone.utc)
 
         await self._client.query(
             """
@@ -60,7 +75,7 @@ class SurrealCategoryRepository(CategoryRepository):
                 "id": record_id,
                 "name": entity.name,
                 "summary": entity.summary,
-                "updated_at": entity.updated_at.isoformat(),
+                "updated_at": updated_at,
             },
         )
 
@@ -68,15 +83,13 @@ class SurrealCategoryRepository(CategoryRepository):
 
     async def get(self, category_id: UUID) -> Optional[CategoryEntity]:
         """Get category by ID"""
-        record_id = f"category:{category_id}"
+        from surrealdb import RecordID
 
-        result = await self._client.query(
-            "SELECT * FROM $id",
-            {"id": record_id},
-        )
+        record_id = RecordID("category", str(category_id))
+        result = await self._client.select(record_id)
 
         if result:
-            return self._to_entity(result[0])
+            return self._to_entity(result[0] if isinstance(result, list) else result)
         return None
 
     async def get_by_name(self, name: str) -> Optional[CategoryEntity]:
@@ -103,6 +116,9 @@ class SurrealCategoryRepository(CategoryRepository):
 
     async def update_summary(self, name: str, summary: str) -> None:
         """Update category summary"""
+        from datetime import timezone
+
+        now = datetime.now(timezone.utc)
         await self._client.query(
             """
             UPDATE category SET
@@ -113,15 +129,18 @@ class SurrealCategoryRepository(CategoryRepository):
             {
                 "name": name,
                 "summary": summary,
-                "updated_at": datetime.utcnow().isoformat(),
+                "updated_at": now,
             },
         )
 
     async def upsert(self, entity: CategoryEntity) -> UUID:
         """Create or update category by name"""
+        from datetime import timezone
+
         existing = await self.get_by_name(entity.name)
 
         if existing:
+            now = datetime.now(timezone.utc)
             await self._client.query(
                 """
                 UPDATE category SET
@@ -132,7 +151,7 @@ class SurrealCategoryRepository(CategoryRepository):
                 {
                     "name": entity.name,
                     "summary": entity.summary,
-                    "updated_at": datetime.utcnow().isoformat(),
+                    "updated_at": now,
                 },
             )
             return existing.id

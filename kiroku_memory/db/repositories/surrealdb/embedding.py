@@ -24,12 +24,19 @@ class SurrealEmbeddingRepository(EmbeddingRepository):
     def __init__(self, client: "AsyncSurreal"):
         self._client = client
 
-    def _parse_record_id(self, record_id: str | dict) -> UUID:
-        """Extract UUID from SurrealDB record ID"""
+    def _parse_record_id(self, record_id) -> UUID:
+        """Extract UUID from SurrealDB record ID (RecordID object or string)"""
+        # Handle RecordID object from surrealdb SDK
+        if hasattr(record_id, "id") and hasattr(record_id, "table_name"):
+            return UUID(str(record_id.id))
+        # Handle dict with 'id' key
         if isinstance(record_id, dict):
-            record_id = record_id.get("id", "")
+            return self._parse_record_id(record_id.get("id", ""))
+        # Handle string format 'table:uuid'
         if isinstance(record_id, str) and ":" in record_id:
-            return UUID(record_id.split(":", 1)[1])
+            uuid_part = record_id.split(":", 1)[1]
+            uuid_part = uuid_part.strip("⟨⟩<>")
+            return UUID(uuid_part)
         return UUID(str(record_id))
 
     def _to_item_entity(self, record: dict) -> ItemEntity:
@@ -70,7 +77,9 @@ class SurrealEmbeddingRepository(EmbeddingRepository):
 
     async def upsert(self, item_id: UUID, vector: list[float]) -> None:
         """Insert or update embedding for an item"""
-        record_id = f"item:{item_id}"
+        from surrealdb import RecordID
+
+        record_id = RecordID("item", str(item_id))
 
         await self._client.query(
             """
@@ -87,21 +96,21 @@ class SurrealEmbeddingRepository(EmbeddingRepository):
 
     async def get(self, item_id: UUID) -> Optional[list[float]]:
         """Get embedding vector for an item"""
-        record_id = f"item:{item_id}"
+        from surrealdb import RecordID
 
-        result = await self._client.query(
-            "SELECT embedding FROM $id",
-            {"id": record_id},
-        )
+        record_id = RecordID("item", str(item_id))
+        result = await self._client.select(record_id)
 
         if result:
-            record = result[0]
-            return record.get("embedding")
+            record = result[0] if isinstance(result, list) else result
+            return record.get("embedding") if isinstance(record, dict) else None
         return None
 
     async def delete(self, item_id: UUID) -> None:
         """Delete embedding for an item (set to null)"""
-        record_id = f"item:{item_id}"
+        from surrealdb import RecordID
+
+        record_id = RecordID("item", str(item_id))
 
         await self._client.query(
             """

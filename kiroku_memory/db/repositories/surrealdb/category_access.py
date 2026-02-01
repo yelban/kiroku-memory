@@ -19,12 +19,19 @@ class SurrealCategoryAccessRepository(CategoryAccessRepository):
     def __init__(self, client: "AsyncSurreal"):
         self._client = client
 
-    def _parse_record_id(self, record_id: str | dict) -> UUID:
-        """Extract UUID from SurrealDB record ID"""
+    def _parse_record_id(self, record_id) -> UUID:
+        """Extract UUID from SurrealDB record ID (RecordID object or string)"""
+        # Handle RecordID object from surrealdb SDK
+        if hasattr(record_id, "id") and hasattr(record_id, "table_name"):
+            return UUID(str(record_id.id))
+        # Handle dict with 'id' key
         if isinstance(record_id, dict):
-            record_id = record_id.get("id", "")
+            return self._parse_record_id(record_id.get("id", ""))
+        # Handle string format 'table:uuid'
         if isinstance(record_id, str) and ":" in record_id:
-            return UUID(record_id.split(":", 1)[1])
+            uuid_part = record_id.split(":", 1)[1]
+            uuid_part = uuid_part.strip("⟨⟩<>")
+            return UUID(uuid_part)
         return UUID(str(record_id))
 
     def _to_entity(self, record: dict) -> CategoryAccessEntity:
@@ -46,7 +53,15 @@ class SurrealCategoryAccessRepository(CategoryAccessRepository):
 
     async def create(self, entity: CategoryAccessEntity) -> UUID:
         """Log a category access"""
-        record_id = f"category_access:{entity.id}"
+        from datetime import timezone
+        from surrealdb import RecordID
+
+        record_id = RecordID("category_access", str(entity.id))
+
+        # Ensure datetime has timezone for SurrealDB
+        accessed_at = entity.accessed_at
+        if accessed_at.tzinfo is None:
+            accessed_at = accessed_at.replace(tzinfo=timezone.utc)
 
         await self._client.query(
             """
@@ -59,12 +74,19 @@ class SurrealCategoryAccessRepository(CategoryAccessRepository):
             {
                 "id": record_id,
                 "category": entity.category,
-                "accessed_at": entity.accessed_at.isoformat(),
+                "accessed_at": accessed_at,
                 "source": entity.source,
             },
         )
 
         return entity.id
+
+    def _ensure_tz(self, dt: datetime) -> datetime:
+        """Ensure datetime has timezone for SurrealDB"""
+        from datetime import timezone as tz
+        if dt.tzinfo is None:
+            return dt.replace(tzinfo=tz.utc)
+        return dt
 
     async def get_recent(
         self,
@@ -82,7 +104,7 @@ class SurrealCategoryAccessRepository(CategoryAccessRepository):
 
         if since:
             conditions.append("accessed_at > $since")
-            params["since"] = since.isoformat()
+            params["since"] = self._ensure_tz(since)
 
         where_clause = ""
         if conditions:
@@ -112,7 +134,7 @@ class SurrealCategoryAccessRepository(CategoryAccessRepository):
 
         if since:
             where_clause = "WHERE accessed_at > $since"
-            params["since"] = since.isoformat()
+            params["since"] = self._ensure_tz(since)
 
         result = await self._client.query(
             f"""
@@ -135,10 +157,12 @@ class SurrealCategoryAccessRepository(CategoryAccessRepository):
 
     async def cleanup_old(self, before: datetime) -> int:
         """Delete old access records, return count deleted"""
+        before_tz = self._ensure_tz(before)
+
         # First count
         count_result = await self._client.query(
             "SELECT count() FROM category_access WHERE accessed_at < $before GROUP ALL",
-            {"before": before.isoformat()},
+            {"before": before_tz},
         )
 
         count = 0
@@ -148,7 +172,7 @@ class SurrealCategoryAccessRepository(CategoryAccessRepository):
         # Then delete
         await self._client.query(
             "DELETE FROM category_access WHERE accessed_at < $before",
-            {"before": before.isoformat()},
+            {"before": before_tz},
         )
 
         return count

@@ -26,12 +26,19 @@ class SurrealGraphRepository(GraphRepository):
     def __init__(self, client: "AsyncSurreal"):
         self._client = client
 
-    def _parse_record_id(self, record_id: str | dict) -> UUID:
-        """Extract UUID from SurrealDB record ID"""
+    def _parse_record_id(self, record_id) -> UUID:
+        """Extract UUID from SurrealDB record ID (RecordID object or string)"""
+        # Handle RecordID object from surrealdb SDK
+        if hasattr(record_id, "id") and hasattr(record_id, "table_name"):
+            return UUID(str(record_id.id))
+        # Handle dict with 'id' key
         if isinstance(record_id, dict):
-            record_id = record_id.get("id", "")
+            return self._parse_record_id(record_id.get("id", ""))
+        # Handle string format 'table:uuid'
         if isinstance(record_id, str) and ":" in record_id:
-            return UUID(record_id.split(":", 1)[1])
+            uuid_part = record_id.split(":", 1)[1]
+            uuid_part = uuid_part.strip("⟨⟩<>")
+            return UUID(uuid_part)
         return UUID(str(record_id))
 
     def _to_entity(self, record: dict) -> GraphEdgeEntity:
@@ -71,7 +78,15 @@ class SurrealGraphRepository(GraphRepository):
 
     async def create(self, entity: GraphEdgeEntity) -> UUID:
         """Create a graph edge"""
-        record_id = f"graph_edge:{entity.id}"
+        from datetime import timezone
+        from surrealdb import RecordID
+
+        record_id = RecordID("graph_edge", str(entity.id))
+
+        # Ensure datetime has timezone for SurrealDB
+        created_at = entity.created_at
+        if created_at.tzinfo is None:
+            created_at = created_at.replace(tzinfo=timezone.utc)
 
         await self._client.query(
             """
@@ -89,7 +104,7 @@ class SurrealGraphRepository(GraphRepository):
                 "predicate": entity.predicate,
                 "object": entity.object,
                 "weight": entity.weight,
-                "created_at": entity.created_at.isoformat(),
+                "created_at": created_at,
             },
         )
 
