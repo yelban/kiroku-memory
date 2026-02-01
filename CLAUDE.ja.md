@@ -12,24 +12,46 @@ Rohit の "How to Build an Agent That Never Forgets" の設計理念に基づい
 
 ## クイックスタート
 
+### オプション A：PostgreSQL（本番環境）
+
 ```bash
 # PostgreSQL + pgvector を起動
 docker compose up -d
 
 # API を起動
 uv run uvicorn kiroku_memory.api:app --reload
-
-# ヘルスチェック
-curl http://localhost:8000/health
 ```
+
+### オプション B：SurrealDB（デスクトップ/組み込み）
+
+```bash
+# .env でバックエンドを設定
+echo "BACKEND=surrealdb" >> .env
+
+# API を起動（Docker 不要！）
+uv run uvicorn kiroku_memory.api:app --reload
+```
+
+詳細は `docs/surrealdb-setup.md` を参照。
 
 ## 環境変数
 
 `.env.example` を `.env` にコピーして設定：
 
-```
+```bash
+# バックエンド選択（postgres または surrealdb）
+BACKEND=postgres
+
+# PostgreSQL 設定（BACKEND=postgres の場合）
 DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/memory
-OPENAI_API_KEY=sk-xxx  # 必須
+
+# SurrealDB 設定（BACKEND=surrealdb の場合）
+SURREAL_URL=file://./data/kiroku
+SURREAL_NAMESPACE=kiroku
+SURREAL_DATABASE=memory
+
+# Embeddings 用（必須）
+OPENAI_API_KEY=sk-xxx
 ```
 
 ## API エンドポイント
@@ -94,8 +116,9 @@ await fetch("http://localhost:8000/ingest", {
 ```
 
 **機能**：
-- SessionStart hook がメモリコンテキストを自動読み込み
-- Stop hook が重要な会話を知的に保存
+- **SessionStart hook**：メモリコンテキストを自動読み込み
+- **PostToolUse hook**：長い会話での増分キャプチャ（スロットリング）
+- **Stop hook**：二段階キャプチャ（Fast regex + Slow LLM）
 - **優先順位ソート**：preferences > facts > goals（ハイブリッド静的+動的重み付け）
 - **スマート切り詰め**：カテゴリの途中で切り詰めない、完全性を維持
 - 手動コマンドでメモリ管理
@@ -109,34 +132,51 @@ await fetch("http://localhost:8000/ingest", {
 - `docs/user-guide.md` - ユーザーガイド
 - `docs/integration-guide.md` - 統合ガイド
 - `docs/claude-code-integration.md` - Claude Code 統合ガイド
+- `docs/surrealdb-setup.md` - SurrealDB バックエンド設定ガイド
+- `docs/surrealdb-migration-plan.md` - デュアルバックエンド移行計画
 - `docs/renaming-changelog.md` - リネーム履歴
 
 ## プロジェクト構成
 
 ```
 kiroku-memory/
-├── kiroku_memory/       # コアモジュール
-│   ├── api.py           # FastAPI エンドポイント
-│   ├── ingest.py        # リソース取り込み
-│   ├── extract.py       # Fact 抽出
-│   ├── classify.py      # 分類器
-│   ├── conflict.py      # 衝突解決
-│   ├── summarize.py     # サマリー生成
-│   ├── embedding.py     # ベクトル検索
-│   ├── observability.py # 監視
-│   ├── db/              # データベース
-│   └── jobs/            # メンテナンスジョブ
-├── tests/               # テスト
-├── docs/                # ドキュメント
-├── docker-compose.yml   # PostgreSQL 設定
-└── pyproject.toml       # プロジェクト設定
+├── kiroku_memory/           # コアモジュール
+│   ├── api.py               # FastAPI エンドポイント
+│   ├── ingest.py            # リソース取り込み
+│   ├── extract.py           # Fact 抽出
+│   ├── classify.py          # 分類器
+│   ├── conflict.py          # 衝突解決
+│   ├── summarize.py         # サマリー生成
+│   ├── observability.py     # 監視
+│   ├── db/                  # データベース層
+│   │   ├── entities.py      # Domain entities（バックエンド非依存）
+│   │   ├── repositories/    # Repository パターン
+│   │   │   ├── base.py      # 抽象インターフェース
+│   │   │   ├── factory.py   # バックエンド選択
+│   │   │   ├── postgres/    # PostgreSQL 実装
+│   │   │   └── surrealdb/   # SurrealDB 実装
+│   │   └── surrealdb/       # SurrealDB モジュール
+│   │       ├── connection.py
+│   │       └── schema.surql
+│   ├── embedding/           # Embedding プロバイダー
+│   │   ├── base.py          # プロバイダーインターフェース
+│   │   ├── factory.py       # プロバイダーファクトリー
+│   │   ├── openai_provider.py
+│   │   └── local_provider.py
+│   └── jobs/                # メンテナンスジョブ
+├── scripts/
+│   └── migrate_backend.py   # バックエンド移行 CLI
+├── tests/                   # テスト
+├── docs/                    # ドキュメント
+├── docker-compose.yml       # PostgreSQL 設定
+└── pyproject.toml           # プロジェクト設定
 ```
 
 ## 開発
 
 - 言語：Python 3.11+
 - フレームワーク：FastAPI + SQLAlchemy 2.x
-- データベース：PostgreSQL 16 + pgvector
+- データベース：PostgreSQL 16 + pgvector または SurrealDB（組み込み）
 - パッケージマネージャー：uv
 - テスト：pytest + pytest-asyncio
 

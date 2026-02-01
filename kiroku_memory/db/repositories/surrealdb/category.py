@@ -75,8 +75,8 @@ class SurrealCategoryRepository(CategoryRepository):
             {"id": record_id},
         )
 
-        if result and result[0]:
-            return self._to_entity(result[0][0])
+        if result:
+            return self._to_entity(result[0])
         return None
 
     async def get_by_name(self, name: str) -> Optional[CategoryEntity]:
@@ -86,8 +86,8 @@ class SurrealCategoryRepository(CategoryRepository):
             {"name": name},
         )
 
-        if result and result[0]:
-            return self._to_entity(result[0][0])
+        if result:
+            return self._to_entity(result[0])
         return None
 
     async def list(self) -> list[CategoryEntity]:
@@ -97,8 +97,8 @@ class SurrealCategoryRepository(CategoryRepository):
             {},
         )
 
-        if result and result[0]:
-            return [self._to_entity(r) for r in result[0]]
+        if result:
+            return [self._to_entity(r) for r in result]
         return []
 
     async def update_summary(self, name: str, summary: str) -> None:

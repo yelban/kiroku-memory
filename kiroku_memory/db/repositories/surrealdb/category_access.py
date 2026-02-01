@@ -98,8 +98,8 @@ class SurrealCategoryAccessRepository(CategoryAccessRepository):
             params,
         )
 
-        if result and result[0]:
-            return [self._to_entity(r) for r in result[0]]
+        if result:
+            return [self._to_entity(r) for r in result]
         return []
 
     async def count_by_category(
@@ -125,8 +125,8 @@ class SurrealCategoryAccessRepository(CategoryAccessRepository):
         )
 
         counts = {}
-        if result and result[0]:
-            for row in result[0]:
+        if result:
+            for row in result:
                 cat = row.get("category", "")
                 cnt = row.get("count", 0)
                 counts[cat] = cnt
@@ -142,8 +142,8 @@ class SurrealCategoryAccessRepository(CategoryAccessRepository):
         )
 
         count = 0
-        if count_result and count_result[0]:
-            count = count_result[0][0].get("count", 0)
+        if count_result:
+            count = count_result[0].get("count", 0)
 
         # Then delete
         await self._client.query(

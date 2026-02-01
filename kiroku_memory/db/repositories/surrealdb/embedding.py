@@ -94,8 +94,8 @@ class SurrealEmbeddingRepository(EmbeddingRepository):
             {"id": record_id},
         )
 
-        if result and result[0]:
-            record = result[0][0]
+        if result:
+            record = result[0]
             return record.get("embedding")
         return None
 
@@ -146,8 +146,8 @@ class SurrealEmbeddingRepository(EmbeddingRepository):
         )
 
         results = []
-        if result and result[0]:
-            for record in result[0]:
+        if result:
+            for record in result:
                 item = self._to_item_entity(record)
                 similarity = float(record.get("similarity", 0.0))
                 results.append(EmbeddingSearchResult(item=item, similarity=similarity))

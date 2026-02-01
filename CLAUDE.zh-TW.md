@@ -1,8 +1,8 @@
 # Kiroku Memory
 
-> Tiered Retrieval Memory System for AI Agents
+> AI Agent 分層檢索記憶系統
 
-這是一個 AI Agent 長期記憶系統，基於 Rohit 的 "How to Build an Agent That Never Forgets" 設計理念實作。
+基於 Rohit "How to Build an Agent That Never Forgets" 設計理念的 AI Agent 長期記憶系統。
 
 **核心特點**：
 - Hybrid Memory Stack：結合 append-only logs、結構化 facts、分類摘要
@@ -12,24 +12,46 @@
 
 ## 快速啟動
 
+### 方式 A：PostgreSQL（生產環境）
+
 ```bash
 # 啟動 PostgreSQL + pgvector
 docker compose up -d
 
 # 啟動 API
 uv run uvicorn kiroku_memory.api:app --reload
-
-# 健康檢查
-curl http://localhost:8000/health
 ```
+
+### 方式 B：SurrealDB（桌面/嵌入式）
+
+```bash
+# 在 .env 設定後端
+echo "BACKEND=surrealdb" >> .env
+
+# 啟動 API（不需 Docker！）
+uv run uvicorn kiroku_memory.api:app --reload
+```
+
+詳見 `docs/surrealdb-setup.md`。
 
 ## 環境變數
 
 複製 `.env.example` 為 `.env`，設定：
 
-```
+```bash
+# 後端選擇（postgres 或 surrealdb）
+BACKEND=postgres
+
+# PostgreSQL 設定（BACKEND=postgres 時）
 DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/memory
-OPENAI_API_KEY=sk-xxx  # 必填
+
+# SurrealDB 設定（BACKEND=surrealdb 時）
+SURREAL_URL=file://./data/kiroku
+SURREAL_NAMESPACE=kiroku
+SURREAL_DATABASE=memory
+
+# Embeddings 必填
+OPENAI_API_KEY=sk-xxx
 ```
 
 ## API 端點
@@ -39,7 +61,7 @@ OPENAI_API_KEY=sk-xxx  # 必填
 |--------|------|------|
 | POST | /ingest | 攝取原始訊息 |
 | GET | /retrieve | Tiered 檢索 |
-| GET | /context | Agent prompt 上下文（支援 `max_chars`、優先級排序） |
+| GET | /context | Agent prompt 上下文 |
 
 ### 智慧功能
 | Method | Path | 功能 |
@@ -94,13 +116,14 @@ await fetch("http://localhost:8000/ingest", {
 ```
 
 **功能**：
-- SessionStart hook 自動載入記憶上下文
-- Stop hook 智慧儲存重要對話
-- **優先級排序**：preferences > facts > goals（非字母順序）
+- **SessionStart hook**：自動載入記憶上下文
+- **PostToolUse hook**：長對話增量擷取（節流）
+- **Stop hook**：雙階段擷取（Fast regex + Slow LLM）
+- **優先級排序**：preferences > facts > goals（混合靜態+動態權重）
 - **智慧截斷**：永不在分類中間截斷，保持完整性
 - 手動命令管理記憶
 
-詳見 `docs/claude-code-integration.md`
+詳見 `docs/claude-code-integration.md`。
 
 ## 文件
 
@@ -109,34 +132,51 @@ await fetch("http://localhost:8000/ingest", {
 - `docs/user-guide.md` - 使用者手冊
 - `docs/integration-guide.md` - 整合指南
 - `docs/claude-code-integration.md` - Claude Code 整合指南
+- `docs/surrealdb-setup.md` - SurrealDB 後端設定指南
+- `docs/surrealdb-migration-plan.md` - Dual-backend 遷移計畫
 - `docs/renaming-changelog.md` - 改名紀錄
 
 ## 專案結構
 
 ```
 kiroku-memory/
-├── kiroku_memory/       # 核心模組
-│   ├── api.py           # FastAPI endpoints
-│   ├── ingest.py        # 資源攝取
-│   ├── extract.py       # Fact extraction
-│   ├── classify.py      # 分類器
-│   ├── conflict.py      # 衝突解決
-│   ├── summarize.py     # 摘要生成
-│   ├── embedding.py     # 向量搜尋
-│   ├── observability.py # 監控
-│   ├── db/              # 資料庫
-│   └── jobs/            # 維護任務
-├── tests/               # 測試
-├── docs/                # 文件
-├── docker-compose.yml   # PostgreSQL 設定
-└── pyproject.toml       # 專案設定
+├── kiroku_memory/           # 核心模組
+│   ├── api.py               # FastAPI endpoints
+│   ├── ingest.py            # 資源攝取
+│   ├── extract.py           # Fact extraction
+│   ├── classify.py          # 分類器
+│   ├── conflict.py          # 衝突解決
+│   ├── summarize.py         # 摘要生成
+│   ├── observability.py     # 監控
+│   ├── db/                  # 資料庫層
+│   │   ├── entities.py      # Domain entities（後端無關）
+│   │   ├── repositories/    # Repository pattern
+│   │   │   ├── base.py      # 抽象介面
+│   │   │   ├── factory.py   # 後端選擇
+│   │   │   ├── postgres/    # PostgreSQL 實作
+│   │   │   └── surrealdb/   # SurrealDB 實作
+│   │   └── surrealdb/       # SurrealDB 模組
+│   │       ├── connection.py
+│   │       └── schema.surql
+│   ├── embedding/           # Embedding 提供者
+│   │   ├── base.py          # 提供者介面
+│   │   ├── factory.py       # 提供者工廠
+│   │   ├── openai_provider.py
+│   │   └── local_provider.py
+│   └── jobs/                # 維護任務
+├── scripts/
+│   └── migrate_backend.py   # 後端遷移 CLI
+├── tests/                   # 測試
+├── docs/                    # 文件
+├── docker-compose.yml       # PostgreSQL 設定
+└── pyproject.toml           # 專案設定
 ```
 
 ## 開發規範
 
 - 語言：Python 3.11+
 - 框架：FastAPI + SQLAlchemy 2.x
-- 資料庫：PostgreSQL 16 + pgvector
+- 資料庫：PostgreSQL 16 + pgvector 或 SurrealDB（嵌入式）
 - 依賴管理：uv
 - 測試：pytest + pytest-asyncio
 

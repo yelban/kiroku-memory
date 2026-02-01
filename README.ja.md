@@ -9,6 +9,7 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-green.svg)](https://fastapi.tiangolo.com/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16+-blue.svg)](https://www.postgresql.org/)
+[![SurrealDB](https://img.shields.io/badge/SurrealDB-2.x-purple.svg)](https://surrealdb.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 **言語**: [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md)
@@ -112,7 +113,7 @@ flowchart TB
 ### 前提条件
 
 - Python 3.11+
-- Docker（PostgreSQL + pgvector 用）
+- Docker（PostgreSQL + pgvector 用）**または** SurrealDB（組み込み、Docker 不要）
 - OpenAI API キー
 
 > **初めてのインストール？** 詳しい手順については[インストールガイド](docs/installation-guide.ja.md)をご覧ください。
@@ -135,6 +136,8 @@ cp .env.example .env
 
 ### サービスの起動
 
+#### オプション A：PostgreSQL（本番環境）
+
 ```bash
 # PostgreSQL + pgvector を起動
 docker compose up -d
@@ -143,6 +146,18 @@ docker compose up -d
 uv run uvicorn kiroku_memory.api:app --reload
 
 # API は http://localhost:8000 で利用可能
+```
+
+#### オプション B：SurrealDB（デスクトップ/組み込み、Docker 不要！）
+
+```bash
+# .env でバックエンドを設定
+echo "BACKEND=surrealdb" >> .env
+
+# API サーバーを起動（Docker 不要！）
+uv run uvicorn kiroku_memory.api:app --reload
+
+# データは ./data/kiroku/ に保存
 ```
 
 ### インストールの確認
@@ -476,11 +491,14 @@ def time_decay_score(created_at, half_life_days=30):
 
 | 変数 | デフォルト | 説明 |
 |------|------------|------|
-| `DATABASE_URL` | `postgresql+asyncpg://...` | データベース接続文字列 |
+| `BACKEND` | `postgres` | バックエンド選択：`postgres` または `surrealdb` |
+| `DATABASE_URL` | `postgresql+asyncpg://...` | PostgreSQL 接続文字列 |
+| `SURREAL_URL` | `file://./data/kiroku` | SurrealDB URL（file:// で組み込み） |
+| `SURREAL_NAMESPACE` | `kiroku` | SurrealDB 名前空間 |
+| `SURREAL_DATABASE` | `memory` | SurrealDB データベース名 |
 | `OPENAI_API_KEY` | （必須） | OpenAI API キー |
 | `EMBEDDING_MODEL` | `text-embedding-3-small` | OpenAI エンベディングモデル |
 | `EMBEDDING_DIMENSIONS` | `1536` | ベクトル次元 |
-| `REDIS_URL` | `redis://localhost:6379/0` | Redis URL（将来使用） |
 | `DEBUG` | `false` | デバッグモードを有効化 |
 
 ## プロジェクト構造
@@ -531,8 +549,8 @@ def time_decay_score(created_at, half_life_days=30):
 
 - **言語**：Python 3.11+
 - **フレームワーク**：FastAPI + asyncio
-- **データベース**：PostgreSQL 16 + pgvector
-- **ORM**：SQLAlchemy 2.x
+- **データベース**：PostgreSQL 16 + pgvector **または** SurrealDB（組み込み）
+- **ORM**：SQLAlchemy 2.x / SurrealDB Python SDK
 - **エンベディング**：OpenAI text-embedding-3-small
 - **パッケージマネージャー**：uv
 

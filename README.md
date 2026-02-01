@@ -9,6 +9,7 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-green.svg)](https://fastapi.tiangolo.com/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16+-blue.svg)](https://www.postgresql.org/)
+[![SurrealDB](https://img.shields.io/badge/SurrealDB-2.x-purple.svg)](https://surrealdb.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 **Language**: [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md)
@@ -112,7 +113,7 @@ flowchart TB
 ### Prerequisites
 
 - Python 3.11+
-- Docker (for PostgreSQL + pgvector)
+- Docker (for PostgreSQL + pgvector) **OR** SurrealDB (embedded, no Docker needed)
 - OpenAI API Key
 
 > **New to development?** See the [detailed installation guide](docs/installation-guide.md) with step-by-step instructions.
@@ -135,6 +136,8 @@ cp .env.example .env
 
 ### Start Services
 
+#### Option A: PostgreSQL (Production)
+
 ```bash
 # Start PostgreSQL with pgvector
 docker compose up -d
@@ -143,6 +146,18 @@ docker compose up -d
 uv run uvicorn kiroku_memory.api:app --reload
 
 # The API will be available at http://localhost:8000
+```
+
+#### Option B: SurrealDB (Desktop/Embedded, No Docker!)
+
+```bash
+# Configure backend in .env
+echo "BACKEND=surrealdb" >> .env
+
+# Start the API server (no Docker needed!)
+uv run uvicorn kiroku_memory.api:app --reload
+
+# Data stored in ./data/kiroku/
 ```
 
 ### Verify Installation
@@ -476,11 +491,14 @@ def time_decay_score(created_at, half_life_days=30):
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `DATABASE_URL` | `postgresql+asyncpg://...` | Database connection string |
+| `BACKEND` | `postgres` | Backend selection: `postgres` or `surrealdb` |
+| `DATABASE_URL` | `postgresql+asyncpg://...` | PostgreSQL connection string |
+| `SURREAL_URL` | `file://./data/kiroku` | SurrealDB URL (file:// for embedded) |
+| `SURREAL_NAMESPACE` | `kiroku` | SurrealDB namespace |
+| `SURREAL_DATABASE` | `memory` | SurrealDB database name |
 | `OPENAI_API_KEY` | (required) | OpenAI API key for embeddings |
 | `EMBEDDING_MODEL` | `text-embedding-3-small` | OpenAI embedding model |
 | `EMBEDDING_DIMENSIONS` | `1536` | Vector dimensions |
-| `REDIS_URL` | `redis://localhost:6379/0` | Redis URL (for future use) |
 | `DEBUG` | `false` | Enable debug mode |
 
 ## Project Structure
@@ -526,8 +544,8 @@ def time_decay_score(created_at, half_life_days=30):
 
 - **Language**: Python 3.11+
 - **Framework**: FastAPI + asyncio
-- **Database**: PostgreSQL 16 + pgvector
-- **ORM**: SQLAlchemy 2.x
+- **Database**: PostgreSQL 16 + pgvector **OR** SurrealDB (embedded)
+- **ORM**: SQLAlchemy 2.x / SurrealDB Python SDK
 - **Embeddings**: OpenAI text-embedding-3-small
 - **Package Manager**: uv
 

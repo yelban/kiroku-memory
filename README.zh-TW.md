@@ -9,6 +9,7 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-green.svg)](https://fastapi.tiangolo.com/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16+-blue.svg)](https://www.postgresql.org/)
+[![SurrealDB](https://img.shields.io/badge/SurrealDB-2.x-purple.svg)](https://surrealdb.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 **語言**: [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md)
@@ -112,7 +113,7 @@ flowchart TB
 ### 環境需求
 
 - Python 3.11+
-- Docker（用於 PostgreSQL + pgvector）
+- Docker（用於 PostgreSQL + pgvector）**或** SurrealDB（嵌入式，不需 Docker）
 - OpenAI API Key
 
 > **初次安裝？** 請參閱[詳細安裝指南](docs/installation-guide.zh-TW.md)，有完整的步驟說明。
@@ -135,6 +136,8 @@ cp .env.example .env
 
 ### 啟動服務
 
+#### 方式 A：PostgreSQL（生產環境）
+
 ```bash
 # 啟動 PostgreSQL + pgvector
 docker compose up -d
@@ -143,6 +146,18 @@ docker compose up -d
 uv run uvicorn kiroku_memory.api:app --reload
 
 # API 將運行在 http://localhost:8000
+```
+
+#### 方式 B：SurrealDB（桌面/嵌入式，不需 Docker！）
+
+```bash
+# 在 .env 中設定後端
+echo "BACKEND=surrealdb" >> .env
+
+# 啟動 API 伺服器（不需 Docker！）
+uv run uvicorn kiroku_memory.api:app --reload
+
+# 資料儲存於 ./data/kiroku/
 ```
 
 ### 驗證安裝
@@ -476,11 +491,14 @@ def time_decay_score(created_at, half_life_days=30):
 
 | 變數 | 預設值 | 說明 |
 |------|--------|------|
-| `DATABASE_URL` | `postgresql+asyncpg://...` | 資料庫連線字串 |
+| `BACKEND` | `postgres` | 後端選擇：`postgres` 或 `surrealdb` |
+| `DATABASE_URL` | `postgresql+asyncpg://...` | PostgreSQL 連線字串 |
+| `SURREAL_URL` | `file://./data/kiroku` | SurrealDB URL（file:// 為嵌入式） |
+| `SURREAL_NAMESPACE` | `kiroku` | SurrealDB 命名空間 |
+| `SURREAL_DATABASE` | `memory` | SurrealDB 資料庫名稱 |
 | `OPENAI_API_KEY` | （必填） | OpenAI API 金鑰 |
 | `EMBEDDING_MODEL` | `text-embedding-3-small` | OpenAI 嵌入模型 |
 | `EMBEDDING_DIMENSIONS` | `1536` | 向量維度 |
-| `REDIS_URL` | `redis://localhost:6379/0` | Redis URL（未來使用） |
 | `DEBUG` | `false` | 啟用除錯模式 |
 
 ## 專案結構
@@ -531,8 +549,8 @@ def time_decay_score(created_at, half_life_days=30):
 
 - **語言**：Python 3.11+
 - **框架**：FastAPI + asyncio
-- **資料庫**：PostgreSQL 16 + pgvector
-- **ORM**：SQLAlchemy 2.x
+- **資料庫**：PostgreSQL 16 + pgvector **或** SurrealDB（嵌入式）
+- **ORM**：SQLAlchemy 2.x / SurrealDB Python SDK
 - **嵌入向量**：OpenAI text-embedding-3-small
 - **套件管理**：uv
 

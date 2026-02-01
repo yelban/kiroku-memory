@@ -38,25 +38,19 @@ class SurrealUnitOfWork(UnitOfWork):
         self.category_accesses = SurrealCategoryAccessRepository(client)
 
     async def __aenter__(self) -> "SurrealUnitOfWork":
-        # Start transaction
-        await self._client.query("BEGIN TRANSACTION")
-        self._in_transaction = True
+        # SurrealDB embedded mode: each query is atomic by default
+        # Skip explicit transaction for now (can add later if needed)
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
-        if exc_type is not None:
-            await self.rollback()
-        # Note: commit is NOT automatic - caller must explicitly commit
-        # If caller forgets, the transaction will be cancelled on disconnect
+        # No-op for now since each query is atomic
+        pass
 
     async def commit(self) -> None:
-        """Commit the transaction"""
-        if self._in_transaction:
-            await self._client.query("COMMIT TRANSACTION")
-            self._in_transaction = False
+        """Commit - no-op for SurrealDB embedded (auto-commit)"""
+        pass
 
     async def rollback(self) -> None:
-        """Rollback the transaction"""
-        if self._in_transaction:
-            await self._client.query("CANCEL TRANSACTION")
-            self._in_transaction = False
+        """Rollback - no-op for SurrealDB embedded"""
+        # Note: Can't rollback individual queries in embedded mode
+        pass

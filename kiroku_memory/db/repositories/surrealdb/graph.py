@@ -114,8 +114,8 @@ class SurrealGraphRepository(GraphRepository):
             {"subject": subject},
         )
 
-        if result and result[0]:
-            return [self._to_entity(r) for r in result[0]]
+        if result:
+            return [self._to_entity(r) for r in result]
         return []
 
     async def get_by_object(self, obj: str) -> list[GraphEdgeEntity]:
@@ -129,8 +129,8 @@ class SurrealGraphRepository(GraphRepository):
             {"obj": obj},
         )
 
-        if result and result[0]:
-            return [self._to_entity(r) for r in result[0]]
+        if result:
+            return [self._to_entity(r) for r in result]
         return []
 
     async def get_neighbors(self, entity: str, depth: int = 1) -> list[GraphEdgeEntity]:
@@ -146,8 +146,8 @@ class SurrealGraphRepository(GraphRepository):
         )
 
         edges = []
-        if result and result[0]:
-            edges = [self._to_entity(r) for r in result[0]]
+        if result:
+            edges = [self._to_entity(r) for r in result]
 
         if depth <= 1:
             return edges
@@ -179,8 +179,8 @@ class SurrealGraphRepository(GraphRepository):
                 {"entities": entities_list},
             )
 
-            if result and result[0]:
-                new_edges = [self._to_entity(r) for r in result[0]]
+            if result:
+                new_edges = [self._to_entity(r) for r in result]
                 all_edges.extend(new_edges)
 
         return all_edges
@@ -194,8 +194,8 @@ class SurrealGraphRepository(GraphRepository):
         )
 
         count = 0
-        if count_result and count_result[0]:
-            count = count_result[0][0].get("count", 0)
+        if count_result:
+            count = count_result[0].get("count", 0)
 
         # Then delete
         await self._client.query(
