@@ -26,6 +26,50 @@ Traditional RAG (Retrieval-Augmented Generation) faces fundamental challenges at
 
 This system addresses these challenges with a **Hybrid Memory Stack** architecture.
 
+## Why Memory Matters: Expert Perspectives
+
+Leading researchers in AI agents and cognitive science emphasize why persistent memory is crucial:
+
+### Lilian Weng (OpenAI Research Scientist)
+
+In her influential article *"LLM Powered Autonomous Agents"*, she identifies memory as a core component:
+
+> Memory enables agents to go beyond stateless interactions, accumulating knowledge across sessions.
+
+Kiroku implements this through **Tiered Retrieval** — summaries first, then drill-down — avoiding the semantic drift problem of naive RAG.
+
+### Harrison Chase (LangChain Founder)
+
+He outlines three layers of agent memory: **Episodic** (events), **Semantic** (facts), **Procedural** (skills).
+
+| LangChain Concept | Kiroku Implementation |
+|-------------------|----------------------|
+| Episodic | `events` category |
+| Semantic | `facts`, `preferences` categories |
+| Procedural | `skills` category |
+
+Plus: **Conflict Resolution** automatically detects contradicting facts, and **Cross-project Sharing** via `global:user` scope.
+
+### Daniel Kahneman (Nobel Laureate, Cognitive Psychology)
+
+From *"Thinking, Fast and Slow"* — System 1 (intuition) vs System 2 (analysis):
+
+| Mode | Kiroku Feature | Benefit |
+|------|----------------|---------|
+| System 1 | Auto-load context | Claude "knows" you instantly |
+| System 2 | `/remember` command | Explicit marking of important info |
+
+**Real impact**: No more repeating "I prefer uv for Python" every session.
+
+### The Core Value
+
+These experts converge on one insight: **Memory transforms AI from a tool into a partner**.
+
+- **Continuity** — Conversations aren't isolated islands
+- **Personalization** — AI truly "knows" you
+- **Efficiency** — Eliminates cognitive overhead of re-explaining context
+- **Evolution** — Memory accumulates, making AI smarter over time
+
 ## Features
 
 - **Append-only Raw Logs**: Immutable provenance tracking

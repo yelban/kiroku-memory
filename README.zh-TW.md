@@ -26,6 +26,50 @@
 
 本系統透過 **Hybrid Memory Stack（混合記憶堆疊）** 架構解決這些挑戰。
 
+## 為什麼記憶重要：專家觀點
+
+AI Agent 與認知科學領域的頂尖研究者，一致強調持久記憶的關鍵價值：
+
+### Lilian Weng（OpenAI 研究科學家）
+
+在她的經典文章 *"LLM Powered Autonomous Agents"* 中指出，記憶是 Agent 的核心組件：
+
+> 記憶讓 Agent 超越無狀態互動，能夠跨 session 累積知識。
+
+Kiroku 透過 **Tiered Retrieval（分層檢索）** 實現這一點 — 先摘要、再鑽取 — 避免傳統 RAG 的語義偏差問題。
+
+### Harrison Chase（LangChain 創辦人）
+
+他提出 Agent 記憶的三個層次：**Episodic**（事件）、**Semantic**（事實）、**Procedural**（技能）。
+
+| LangChain 概念 | Kiroku 實作 |
+|----------------|-------------|
+| Episodic | `events` 分類 |
+| Semantic | `facts`、`preferences` 分類 |
+| Procedural | `skills` 分類 |
+
+額外價值：**Conflict Resolution** 自動偵測矛盾事實，**跨專案共享** 透過 `global:user` scope 實現。
+
+### Daniel Kahneman（諾貝爾獎得主，認知心理學家）
+
+《快思慢想》區分系統一（直覺）與系統二（分析）：
+
+| 模式 | Kiroku 功能 | 效益 |
+|------|-------------|------|
+| 系統一 | 自動載入上下文 | Claude 開機就「認識你」 |
+| 系統二 | `/remember` 指令 | 明確標記重要資訊 |
+
+**實際效果**：不用每次都說「我偏好用 uv 管理 Python」。
+
+### 核心價值
+
+這些專家的觀點匯聚成一個洞見：**記憶讓 AI 從「工具」進化為「夥伴」**。
+
+- **連續性** — 對話不再是孤島
+- **個人化** — AI 真正「認識」你
+- **效率** — 省去重複解釋的認知負擔
+- **演化** — 記憶累積，AI 越用越懂你
+
 ## 功能特點
 
 - **只增不改的原始日誌**：不可變的來源追蹤
