@@ -135,34 +135,81 @@ async def build_all_summaries(session: AsyncSession) -> dict[str, str]:
 async def get_tiered_context(
     session: AsyncSession,
     categories: Optional[list[str]] = None,
+    max_items_per_category: int = 10,
 ) -> str:
     """
     Get tiered context for agent system prompt.
 
-    Returns category summaries formatted for inclusion in prompts.
+    Returns category summaries + recent items formatted for inclusion in prompts.
+    Items are always included for real-time memory access.
 
     Args:
         session: Database session
         categories: Optional list of categories to include
+        max_items_per_category: Max recent items to show per category
 
     Returns:
         Formatted context string
     """
-    query = select(Category).order_by(Category.name)
+    # Get categories
+    cat_query = select(Category).order_by(Category.name)
     if categories:
-        query = query.where(Category.name.in_(categories))
+        cat_query = cat_query.where(Category.name.in_(categories))
 
-    result = await session.execute(query)
-    cats = result.scalars().all()
+    cat_result = await session.execute(cat_query)
+    cats = cat_result.scalars().all()
 
     if not cats:
         return "No memory context available."
 
+    # Default summaries to detect if summarize has been run
+    default_summaries = {
+        "events": "Past or scheduled events, activities, appointments",
+        "facts": "Factual information about the user or their environment",
+        "goals": "Objectives, plans, aspirations",
+        "preferences": "User preferences, settings, and personal choices",
+        "relationships": "People, organizations, and their connections",
+        "skills": "Abilities, expertise, knowledge areas",
+    }
+
     lines = ["## User Memory Context", ""]
+
     for cat in cats:
-        if cat.summary:
-            lines.append(f"### {cat.name.title()}")
+        # Get recent items for this category
+        items_query = (
+            select(Item)
+            .where(Item.category == cat.name)
+            .where(Item.status == "active")
+            .order_by(Item.created_at.desc())
+            .limit(max_items_per_category)
+        )
+        items_result = await session.execute(items_query)
+        items = items_result.scalars().all()
+
+        # Check if summary is default (not yet summarized)
+        is_default_summary = (
+            cat.summary == default_summaries.get(cat.name)
+            or not cat.summary
+        )
+
+        # Skip category if no items and default summary
+        if not items and is_default_summary:
+            continue
+
+        lines.append(f"### {cat.name.title()}")
+
+        # Show summary if it's been updated (not default)
+        if cat.summary and not is_default_summary:
             lines.append(cat.summary)
+            lines.append("")
+
+        # Always show recent items for real-time access
+        if items:
+            if not is_default_summary:
+                lines.append("**Recent:**")
+            for item in items:
+                obj_part = f" {item.object}" if item.object else ""
+                lines.append(f"- {item.subject} {item.predicate}{obj_part}")
             lines.append("")
 
     return "\n".join(lines)

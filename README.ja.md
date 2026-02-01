@@ -194,9 +194,99 @@ curl "http://localhost:8000/context"
 
 ## 統合
 
-### Claude Code との統合（MCP サーバー）
+### Claude Code との統合（推奨）
 
-Claude Code と統合するための MCP サーバーを作成：
+#### オプション 1：Plugin Marketplace（最も簡単）
+
+```bash
+# ステップ 1：マーケットプレイスを追加
+/plugin marketplace add https://github.com/yelban/kiroku-memory.git
+
+# ステップ 2：プラグインをインストール
+/plugin install kiroku-memory
+```
+
+#### オプション 2：npx Skills CLI
+
+```bash
+# Vercel Skills CLI
+npx skills add yelban/kiroku-memory
+
+# または add-skill CLI
+npx add-skill yelban/kiroku-memory
+
+# または OpenSkills
+npx openskills install yelban/kiroku-memory
+```
+
+#### オプション 3：手動インストール
+
+```bash
+# ワンクリックインストール
+curl -fsSL https://raw.githubusercontent.com/yelban/kiroku-memory/main/skill/assets/install.sh | bash
+
+# またはクローンしてインストール
+git clone https://github.com/yelban/kiroku-memory.git
+cd kiroku-memory/skill/assets && ./install.sh
+```
+
+インストール後、Claude Code を再起動して使用：
+
+```bash
+/remember ユーザーはダークモードを好む    # メモリを保存
+/recall エディタの好み                    # メモリを検索
+/memory-status                           # ステータスを確認
+```
+
+**機能：**
+- **自動ロード**：SessionStart hook がメモリコンテキストを注入
+- **スマート保存**：Stop hook が重要なファクトを自動保存
+- **クロスプロジェクト**：グローバル + プロジェクト固有のメモリスコープ
+
+#### Hooks が動作していることを確認
+
+Hooks が正しく動作している場合、会話開始時に以下が表示されます：
+
+```
+SessionStart:startup hook success: <kiroku-memory>
+## User Memory Context
+
+### Preferences
+...
+</kiroku-memory>
+```
+
+これは以下を確認します：
+- ✅ SessionStart hook が正常に実行された
+- ✅ API サービスが接続されている
+- ✅ メモリコンテキストが注入された
+
+メモリ内容が空（カテゴリヘッダーのみ）の場合、まだメモリが保存されていません。`/remember` を使用して手動で保存してください。
+
+#### 自動保存条件
+
+Stop Hook は会話を分析し、以下のパターンに一致するコンテンツのみを保存します：
+
+| パターンタイプ | 例 | 最小加重長 |
+|--------------|----|-----------|
+| 好み | `好き...`、`prefer...` | 10 |
+| 決定 | `に決めた...`、`chosen...` | 10 |
+| 設定 | `config...`、`プロジェクトで使用...` | 10 |
+| 事実 | `勤務先...`、`住んでいる...` | 10 |
+| パターンなし | 一般的なコンテンツ | 35 |
+
+> **加重長**：CJK 文字 × 2.5 + その他の文字 × 1
+
+**フィルタリングされるもの（ノイズ）：**
+- 短い返答：`OK`、`はい`、`ありがとう`
+- 質問：`何ですか...`、`どうやって...`
+- エラー：`エラー`、`失敗`
+
+詳細は [Claude Code Integration Guide](docs/claude-code-integration.md) を参照してください。
+
+### MCP サーバーとの統合（上級）
+
+カスタム MCP サーバーを作成：
 
 ```python
 # memory_mcp.py

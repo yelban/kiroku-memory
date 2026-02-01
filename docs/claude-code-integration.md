@@ -287,6 +287,74 @@ API 位址: http://localhost:8000
 - 去重複：24 小時內不重複儲存
 - 數量限制：每次對話最多 3 筆
 
+## 運作狀態驗證
+
+### 確認 Hooks 正在運作
+
+當 Hooks 正常運作時，對話開始會看到類似訊息：
+
+```
+SessionStart:startup hook success: <kiroku-memory>
+## User Memory Context
+
+### Events
+Past or scheduled events, activities, appointments
+
+### Facts
+Factual information about the user or their environment
+...
+</kiroku-memory>
+```
+
+此訊息表示：
+- ✅ SessionStart hook 成功執行
+- ✅ API 服務正常連接
+- ✅ 記憶上下文已注入對話
+
+如果記憶內容為空（只有分類標題），表示尚未儲存任何記憶。
+
+### 快速健康檢查
+
+```bash
+curl http://localhost:8000/health
+```
+
+成功回應：
+```json
+{"status":"ok","version":"0.1.0"}
+```
+
+### 自動儲存條件詳解
+
+Stop Hook 會分析對話內容，只儲存符合條件的資訊：
+
+#### 會儲存的內容（需符合 pattern + 長度門檻）
+
+| Pattern 類型 | 範例 | 最小加權長度 |
+|-------------|------|-------------|
+| 偏好表達 | `我喜歡...`、`I prefer...`、`偏好...` | 10 |
+| 決定陳述 | `決定使用...`、`chosen...`、`selected...` | 10 |
+| 設定記錄 | `設定...`、`config...`、`專案使用...` | 10 |
+| 事實陳述 | `工作於...`、`住在...`、`located...` | 10 |
+| 無 pattern | 一般內容 | 35 |
+
+> **加權長度計算**：CJK 字元 × 2.5 + 其他字元 × 1
+
+#### 會過濾掉的雜訊
+
+| 類型 | 範例 |
+|------|------|
+| 短回覆 | `好的`、`OK`、`是的`、`沒問題` |
+| 感謝語 | `謝謝`、`thanks` |
+| 問句 | `什麼是...`、`怎麼做...`、`how...` |
+| 錯誤訊息 | `error`、`錯誤`、`failed` |
+
+#### 其他限制
+
+- **去重複**：24 小時內相同內容不重複儲存
+- **數量限制**：每次對話最多儲存 3 筆
+- **非同步執行**：Stop Hook 以 async 模式執行，不阻塞對話
+
 ## 故障排除
 
 ### 服務無法連接

@@ -194,9 +194,99 @@ curl "http://localhost:8000/context"
 
 ## 整合
 
-### 與 Claude Code 整合（MCP Server）
+### 與 Claude Code 整合（推薦）
 
-建立 MCP 伺服器與 Claude Code 整合：
+#### 方式一：Plugin Marketplace（最簡單）
+
+```bash
+# 步驟 1：新增市集
+/plugin marketplace add https://github.com/yelban/kiroku-memory.git
+
+# 步驟 2：安裝外掛
+/plugin install kiroku-memory
+```
+
+#### 方式二：npx Skills CLI
+
+```bash
+# Vercel Skills CLI
+npx skills add yelban/kiroku-memory
+
+# 或 add-skill CLI
+npx add-skill yelban/kiroku-memory
+
+# 或 OpenSkills
+npx openskills install yelban/kiroku-memory
+```
+
+#### 方式三：手動安裝
+
+```bash
+# 一鍵安裝
+curl -fsSL https://raw.githubusercontent.com/yelban/kiroku-memory/main/skill/assets/install.sh | bash
+
+# 或 clone 後安裝
+git clone https://github.com/yelban/kiroku-memory.git
+cd kiroku-memory/skill/assets && ./install.sh
+```
+
+安裝後重啟 Claude Code，即可使用：
+
+```bash
+/remember 用戶偏好深色模式          # 儲存記憶
+/recall 編輯器偏好                  # 搜尋記憶
+/memory-status                      # 檢查狀態
+```
+
+**功能特色：**
+- **自動載入**：SessionStart hook 自動注入記憶上下文
+- **智慧儲存**：Stop hook 自動儲存重要事實
+- **跨專案**：全域記憶 + 專案記憶範圍
+
+#### 驗證 Hooks 運作狀態
+
+當 Hooks 正常運作時，對話開始會出現：
+
+```
+SessionStart:startup hook success: <kiroku-memory>
+## User Memory Context
+
+### Preferences
+...
+</kiroku-memory>
+```
+
+這表示：
+- ✅ SessionStart hook 成功執行
+- ✅ API 服務已連接
+- ✅ 記憶上下文已注入
+
+若記憶內容為空（只有分類標題），代表尚未儲存任何記憶，可用 `/remember` 手動儲存。
+
+#### 自動儲存條件
+
+Stop Hook 會分析對話內容，只儲存符合以下模式的內容：
+
+| 模式類型 | 範例 | 最小加權長度 |
+|---------|------|-------------|
+| 偏好 | `我喜歡...`、`偏好...` | 10 |
+| 決定 | `決定使用...`、`選擇...` | 10 |
+| 設定 | `專案使用...`、`架構決定...` | 10 |
+| 事實 | `工作於...`、`住在...` | 10 |
+| 無模式 | 一般內容 | 35 |
+
+> **加權長度計算**：CJK 字元 × 2.5 + 其他字元 × 1
+
+**會過濾掉的雜訊：**
+- 短回覆：`好的`、`OK`、`謝謝`
+- 問句：`什麼是...`、`怎麼做...`
+- 錯誤訊息：`錯誤`、`失敗`
+
+詳見 [Claude Code 整合指南](docs/claude-code-integration.md)。
+
+### 與 MCP Server 整合（進階）
+
+建立自訂 MCP 伺服器：
 
 ```python
 # memory_mcp.py

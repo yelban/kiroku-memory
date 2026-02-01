@@ -243,6 +243,45 @@ After installation, restart Claude Code and use:
 - **Smart-save**: Stop hook automatically saves important facts
 - **Cross-project**: Global + project-specific memory scopes
 
+#### Verify Hooks Are Working
+
+When hooks are working correctly, you'll see this at conversation start:
+
+```
+SessionStart:startup hook success: <kiroku-memory>
+## User Memory Context
+
+### Preferences
+...
+</kiroku-memory>
+```
+
+This confirms:
+- ✅ SessionStart hook executed successfully
+- ✅ API service is connected
+- ✅ Memory context has been injected
+
+If memory content is empty (only category headers), no memories have been stored yet. Use `/remember` to store manually.
+
+#### Auto-Save Conditions
+
+Stop Hook analyzes conversations and only saves content matching these patterns:
+
+| Pattern Type | Examples | Min Weighted Length |
+|-------------|----------|---------------------|
+| Preferences | `I prefer...`, `I like...` | 10 |
+| Decisions | `decided to use...`, `chosen...` | 10 |
+| Settings | `config...`, `project uses...` | 10 |
+| Facts | `work at...`, `live in...` | 10 |
+| No pattern | General content | 35 |
+
+> **Weighted length**: CJK chars × 2.5 + other chars × 1
+
+**Filtered out (noise):**
+- Short responses: `OK`, `好的`, `Thanks`
+- Questions: `What is...`, `How to...`
+- Errors: `error`, `failed`
+
 See [Claude Code Integration Guide](docs/claude-code-integration.md) for details.
 
 ### With MCP Server (Advanced)
