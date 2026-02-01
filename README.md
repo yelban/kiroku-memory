@@ -311,19 +311,35 @@ This confirms:
 
 If memory content is empty (only category headers), no memories have been stored yet. Use `/remember` to store manually.
 
-#### Auto-Save Conditions
+#### Auto-Save: Two-Phase Memory Capture
 
-Stop Hook analyzes conversations and only saves content matching these patterns:
+Stop Hook uses a **Fast + Slow** dual-phase architecture:
+
+**Phase 1: Fast Path (<1s, sync)**
+
+Regex-based pattern matching for immediate capture:
 
 | Pattern Type | Examples | Min Weighted Length |
 |-------------|----------|---------------------|
 | Preferences | `I prefer...`, `I like...` | 10 |
 | Decisions | `decided to use...`, `chosen...` | 10 |
-| Settings | `config...`, `project uses...` | 10 |
+| Discoveries | `discovered...`, `found that...`, `solution is...` | 10 |
+| Learnings | `learned...`, `root cause...`, `the issue was...` | 10 |
 | Facts | `work at...`, `live in...` | 10 |
 | No pattern | General content | 35 |
 
+Also extracts **conclusion markers** from Claude's responses:
+- `Solution`, `Discovery`, `Conclusion`, `Recommendation`, `Root cause`
+
 > **Weighted length**: CJK chars × 2.5 + other chars × 1
+
+**Phase 2: Slow Path (5-15s, async)**
+
+Background LLM analysis using Claude CLI:
+- Runs in detached subprocess (doesn't block Claude Code)
+- Analyzes last 6 user + 4 assistant messages
+- Extracts up to 5 memories with type/confidence
+- Memory types: `discovery`, `decision`, `learning`, `preference`, `fact`
 
 **Filtered out (noise):**
 - Short responses: `OK`, `好的`, `Thanks`
