@@ -43,6 +43,11 @@ def fetch_context(categories: str = None) -> str:
         return data.get("context", "")
 
 
+def count_categories(context: str) -> int:
+    """Count category headings (### Category) in context."""
+    return context.count("### ")
+
+
 def main():
     try:
         # Fetch global + project context
@@ -52,16 +57,19 @@ def main():
             # No memories, exit silently
             sys.exit(0)
 
+        # Count categories before truncation
+        category_count = count_categories(context)
+
         # Truncate if too long
         if len(context) > MAX_CONTEXT_CHARS:
             context = context[:MAX_CONTEXT_CHARS] + "\n\n...(truncated)"
 
-        # Output context - Claude Code will inject this into conversation
-        print(f"""
-<kiroku-memory>
-{context}
-</kiroku-memory>
-""".strip())
+        # Output JSON with systemMessage (shown to user) and context
+        output = {
+            "systemMessage": f"✓ Kiroku Memory: {category_count} categories loaded",
+            "result": f"<kiroku-memory>\n{context}\n</kiroku-memory>"
+        }
+        print(json.dumps(output))
 
         sys.exit(0)
 
