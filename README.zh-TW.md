@@ -56,7 +56,7 @@ flowchart TB
         Items --> Embeddings["嵌入向量<br/>(pgvector)"]
         Items --> Summary["摘要<br/>建構"]
 
-        Embeddings --> Retrieve["檢索<br/>(分層)"]
+        Embeddings --> Retrieve["檢索<br/>(分層+優先級)"]
         Summary --> Retrieve
     end
 ```
@@ -241,6 +241,8 @@ cd kiroku-memory/skill/assets && ./install.sh
 **功能特色：**
 - **自動載入**：SessionStart hook 自動注入記憶上下文
 - **智慧儲存**：Stop hook 自動儲存重要事實
+- **優先級排序**：preferences > facts > goals（混合靜態+動態權重）
+- **智慧截斷**：永不在分類中間截斷，保持完整性
 - **跨專案**：全域記憶 + 專案記憶範圍
 
 #### 驗證 Hooks 運作狀態

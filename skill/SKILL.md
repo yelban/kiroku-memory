@@ -57,14 +57,33 @@ Default behavior:
 
 ## Categories
 
-| Category | Description |
-|----------|-------------|
-| `preferences` | User preferences |
-| `facts` | Factual information |
-| `events` | Events and activities |
-| `relationships` | People and connections |
-| `skills` | Skills and expertise |
-| `goals` | Goals and plans |
+| Category | Priority | Description |
+|----------|----------|-------------|
+| `preferences` | 1.0 | User preferences (highest priority) |
+| `facts` | 0.9 | Factual information |
+| `goals` | 0.7 | Goals and plans |
+| `skills` | 0.6 | Skills and expertise |
+| `relationships` | 0.5 | People and connections |
+| `events` | 0.4 | Events and activities (lowest priority) |
+
+## Priority Ordering & Smart Truncation
+
+### Hybrid Priority Model
+
+Categories are ordered by priority, not alphabetically:
+- **Static weight**: Base priority defined above
+- **Dynamic factors**: Usage frequency + recency
+
+```
+priority = static_weight × (1.0 + usage_weight × usage_score + recency_weight × recency_score)
+```
+
+### Smart Truncation
+
+When context exceeds limit (default 2000 chars):
+- **Never truncates mid-category**: Drops complete categories instead
+- **Priority-based**: Lower priority categories dropped first
+- **Maintains formatting**: No broken markdown
 
 ## Documentation
 

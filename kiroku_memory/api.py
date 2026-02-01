@@ -245,11 +245,30 @@ async def summarize_endpoint():
 
 
 @app.get("/context")
-async def context_endpoint(categories: Optional[str] = None):
-    """Get tiered context for agent prompt"""
+async def context_endpoint(
+    categories: Optional[str] = None,
+    max_chars: Optional[int] = None,
+    max_items_per_category: int = 10,
+):
+    """
+    Get tiered context for agent prompt.
+
+    Categories are ordered by priority (preferences > facts > goals > etc.)
+    with dynamic adjustment based on usage frequency and recency.
+
+    Args:
+        categories: Comma-separated list of categories to include
+        max_chars: Maximum characters (truncates by complete category, never mid-block)
+        max_items_per_category: Max recent items per category (default: 10)
+    """
     async with get_session() as session:
         cat_list = categories.split(",") if categories else None
-        context = await get_tiered_context(session, cat_list)
+        context = await get_tiered_context(
+            session,
+            cat_list,
+            max_items_per_category=max_items_per_category,
+            max_chars=max_chars,
+        )
         return {"context": context}
 
 

@@ -39,7 +39,7 @@ OPENAI_API_KEY=sk-xxx  # 必填
 |--------|------|------|
 | POST | /ingest | 攝取原始訊息 |
 | GET | /retrieve | Tiered 檢索 |
-| GET | /context | Agent prompt 上下文 |
+| GET | /context | Agent prompt 上下文（支援 `max_chars`、優先級排序） |
 
 ### 智慧功能
 | Method | Path | 功能 |
@@ -96,6 +96,8 @@ await fetch("http://localhost:8000/ingest", {
 **功能**：
 - SessionStart hook 自動載入記憶上下文
 - Stop hook 智慧儲存重要對話
+- **優先級排序**：preferences > facts > goals（非字母順序）
+- **智慧截斷**：永不在分類中間截斷，保持完整性
 - 手動命令管理記憶
 
 詳見 `docs/claude-code-integration.md`

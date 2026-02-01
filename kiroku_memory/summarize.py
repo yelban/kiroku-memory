@@ -136,31 +136,48 @@ async def get_tiered_context(
     session: AsyncSession,
     categories: Optional[list[str]] = None,
     max_items_per_category: int = 10,
+    max_chars: Optional[int] = None,
+    record_access: bool = True,
 ) -> str:
     """
     Get tiered context for agent system prompt.
 
     Returns category summaries + recent items formatted for inclusion in prompts.
-    Items are always included for real-time memory access.
+    Categories are ordered by priority (hybrid static + dynamic).
+    Truncates by complete categories when max_chars is specified.
 
     Args:
         session: Database session
         categories: Optional list of categories to include
         max_items_per_category: Max recent items to show per category
+        max_chars: Maximum characters (truncates by complete category)
+        record_access: Whether to record access events for priority tracking
 
     Returns:
         Formatted context string
     """
-    # Get categories
-    cat_query = select(Category).order_by(Category.name)
+    from .priority import (
+        gather_category_stats,
+        sort_categories_by_priority,
+        record_category_access,
+        DEFAULT_PRIORITY_CONFIG,
+    )
+
+    # Get category stats for priority sorting
+    all_stats = await gather_category_stats(session, DEFAULT_PRIORITY_CONFIG)
+    sorted_stats = sort_categories_by_priority(all_stats, DEFAULT_PRIORITY_CONFIG)
+
+    # Filter if specific categories requested
     if categories:
-        cat_query = cat_query.where(Category.name.in_(categories))
+        sorted_stats = [s for s in sorted_stats if s.name in categories]
 
-    cat_result = await session.execute(cat_query)
-    cats = cat_result.scalars().all()
-
-    if not cats:
+    if not sorted_stats:
         return "No memory context available."
+
+    # Get category objects
+    cat_query = select(Category)
+    cat_result = await session.execute(cat_query)
+    cats_by_name = {cat.name: cat for cat in cat_result.scalars()}
 
     # Default summaries to detect if summarize has been run
     default_summaries = {
@@ -172,13 +189,16 @@ async def get_tiered_context(
         "skills": "Abilities, expertise, knowledge areas",
     }
 
-    lines = ["## User Memory Context", ""]
+    header = "## User Memory Context\n"
+    blocks = []  # List of (category_name, block_text)
 
-    for cat in cats:
+    for stats in sorted_stats:
+        cat = cats_by_name.get(stats.name)
+
         # Get recent items for this category
         items_query = (
             select(Item)
-            .where(Item.category == cat.name)
+            .where(Item.category == stats.name)
             .where(Item.status == "active")
             .order_by(Item.created_at.desc())
             .limit(max_items_per_category)
@@ -187,32 +207,52 @@ async def get_tiered_context(
         items = items_result.scalars().all()
 
         # Check if summary is default (not yet summarized)
+        summary = cat.summary if cat else None
         is_default_summary = (
-            cat.summary == default_summaries.get(cat.name)
-            or not cat.summary
+            summary == default_summaries.get(stats.name)
+            or not summary
         )
 
         # Skip category if no items and default summary
         if not items and is_default_summary:
             continue
 
-        lines.append(f"### {cat.name.title()}")
+        block_lines = [f"### {stats.name.title()}"]
 
         # Show summary if it's been updated (not default)
-        if cat.summary and not is_default_summary:
-            lines.append(cat.summary)
-            lines.append("")
+        if summary and not is_default_summary:
+            block_lines.append(summary)
+            block_lines.append("")
 
         # Always show recent items for real-time access
         if items:
             if not is_default_summary:
-                lines.append("**Recent:**")
+                block_lines.append("**Recent:**")
             for item in items:
                 obj_part = f" {item.object}" if item.object else ""
-                lines.append(f"- {item.subject} {item.predicate}{obj_part}")
-            lines.append("")
+                block_lines.append(f"- {item.subject} {item.predicate}{obj_part}")
+            block_lines.append("")
 
-    return "\n".join(lines)
+        blocks.append((stats.name, "\n".join(block_lines)))
+
+    # Apply max_chars truncation by complete categories
+    included_categories = []
+    result_parts = [header]
+    current_len = len(header)
+
+    for cat_name, block in blocks:
+        block_len = len(block) + 1  # +1 for newline separator
+        if max_chars and current_len + block_len > max_chars:
+            break
+        result_parts.append(block)
+        included_categories.append(cat_name)
+        current_len += block_len
+
+    # Record access for included categories
+    if record_access and included_categories:
+        await record_category_access(session, included_categories, source="context")
+
+    return "\n".join(result_parts)
 
 
 async def get_category_stats(session: AsyncSession) -> dict[str, dict]:

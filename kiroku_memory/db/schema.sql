@@ -71,3 +71,14 @@ CREATE TABLE embeddings (
 CREATE INDEX idx_embeddings_hnsw ON embeddings
     USING hnsw (embedding vector_cosine_ops)
     WITH (m = 16, ef_construction = 64);
+
+-- Category Accesses: track usage for dynamic priority
+CREATE TABLE category_accesses (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    category TEXT NOT NULL,
+    accessed_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    source TEXT DEFAULT 'context'
+);
+
+CREATE INDEX idx_category_accesses_category ON category_accesses(category);
+CREATE INDEX idx_category_accesses_accessed_at ON category_accesses(accessed_at DESC);

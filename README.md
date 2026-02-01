@@ -56,7 +56,7 @@ flowchart TB
         Items --> Embeddings["Embeddings<br/>(pgvector)"]
         Items --> Summary["Summary<br/>Builder"]
 
-        Embeddings --> Retrieve["Retrieve<br/>(Tiered)"]
+        Embeddings --> Retrieve["Retrieve<br/>(Tiered + Priority)"]
         Summary --> Retrieve
     end
 ```
@@ -241,6 +241,8 @@ After installation, restart Claude Code and use:
 **Features:**
 - **Auto-load**: SessionStart hook injects memory context
 - **Smart-save**: Stop hook automatically saves important facts
+- **Priority ordering**: preferences > facts > goals (hybrid static+dynamic weights)
+- **Smart truncation**: Never truncates mid-category, maintains completeness
 - **Cross-project**: Global + project-specific memory scopes
 
 #### Verify Hooks Are Working

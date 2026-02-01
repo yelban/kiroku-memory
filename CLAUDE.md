@@ -96,6 +96,8 @@ Full Claude Code integration implemented:
 **Features**:
 - SessionStart hook auto-loads memory context
 - Stop hook intelligently saves important conversations
+- **Priority ordering**: preferences > facts > goals (hybrid static+dynamic weights)
+- **Smart truncation**: Never truncates mid-category, maintains completeness
 - Manual commands for memory management
 
 See `docs/claude-code-integration.md` for details.

@@ -392,6 +392,130 @@ rm -rf ~/.claude/skills/kiroku-memory/
 rm -rf ~/.cache/kiroku-memory/
 ```
 
+## 優先級排序與智慧截斷
+
+### 問題背景
+
+舊版設計有兩個問題：
+
+1. **字母順序 ≠ 重要性**：分類按字母排序 (events → facts → goals → preferences)，但 `preferences` 通常比 `events` 更常用
+2. **粗暴截斷**：超過 2000 字元時直接砍斷，可能在分類中間截斷導致 markdown 格式錯誤
+
+### 新版設計：混合優先級模型
+
+#### 優先級公式
+
+```
+priority = static_weight × dynamic_factor
+
+dynamic_factor = 1.0 + usage_weight × usage_score + recency_weight × recency_score
+```
+
+其中：
+- `usage_score = min(1.0, access_count / usage_norm)`（30天內存取次數）
+- `recency_score = exp(-age_days / recency_half_life_days)`（指數衰減）
+
+#### 預設靜態優先級
+
+| 分類 | 權重 | 說明 |
+|------|------|------|
+| preferences | 1.0 | 最常用於個人化 |
+| facts | 0.9 | 核心使用者資訊 |
+| goals | 0.7 | 使用者目標 |
+| skills | 0.6 | 使用者能力 |
+| relationships | 0.5 | 社交脈絡 |
+| events | 0.4 | 較少用於 context |
+
+#### 動態調整參數
+
+| 參數 | 預設值 | 說明 |
+|------|--------|------|
+| usage_window_days | 30 | 計算使用頻率的時間窗口 |
+| usage_norm | 10 | 歸一化使用次數 |
+| usage_weight | 0.3 | 使用頻率權重 |
+| recency_half_life_days | 14 | 新鮮度半衰期 |
+| recency_weight | 0.2 | 新鮮度權重 |
+
+### 智慧截斷（完整分類優先）
+
+#### 設計原則
+
+- **永不在分類中間截斷**：寧可少顯示一個完整分類，也不要斷在中間
+- **按優先級保留**：高優先級分類優先保留
+- **雙層保護**：API 層 + Hook 層都有截斷邏輯
+
+#### API 層：`/context` 端點
+
+新增參數：
+
+```
+GET /context?max_chars=2000&max_items_per_category=10
+```
+
+| 參數 | 預設值 | 說明 |
+|------|--------|------|
+| categories | null | 逗號分隔的分類列表（可選） |
+| max_chars | null | 最大字元數（按完整分類截斷） |
+| max_items_per_category | 10 | 每分類最多項目數 |
+
+#### Hook 層：session-start-hook.py
+
+```python
+MAX_CONTEXT_CHARS = 2000
+
+def smart_truncate(context: str, max_chars: int) -> str:
+    """按 ### 標題分割，保留完整分類"""
+    header, blocks = split_by_category(context)
+    result = [header]
+    current_len = len(header)
+
+    for block in blocks:
+        if current_len + len(block) + 2 > max_chars:
+            break
+        result.append(block)
+        current_len += len(block) + 2
+
+    return "\n\n".join(result)
+```
+
+### 使用追蹤
+
+每次呼叫 `/context` 時，系統會記錄哪些分類被載入：
+
+```sql
+SELECT category, accessed_at, source
+FROM category_accesses
+ORDER BY accessed_at DESC;
+```
+
+```
+  category   |        accessed_at         | source
+-------------+----------------------------+---------
+ preferences | 2026-02-01 03:57:21        | context
+ facts       | 2026-02-01 03:57:21        | context
+```
+
+這些資料會用於動態調整優先級。
+
+### 驗證優先級排序
+
+```bash
+# 載入 context
+curl -s "http://localhost:8000/context" | jq -r '.context'
+```
+
+輸出順序應為：
+```
+## User Memory Context
+
+### Preferences    ← 最高優先級
+...
+### Facts          ← 第二
+...
+### Goals          ← 第三
+...
+```
+
 ## 技術細節
 
 ### Hook 資料流

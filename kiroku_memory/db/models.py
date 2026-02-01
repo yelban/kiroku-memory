@@ -120,3 +120,18 @@ class Embedding(Base):
 
     # Relationships
     item: Mapped["Item"] = relationship("Item", back_populates="embedding")
+
+
+class CategoryAccess(Base):
+    """Track category access for dynamic priority scoring"""
+    __tablename__ = "category_accesses"
+
+    id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True, default=uuid4)
+    category: Mapped[str] = mapped_column(Text, nullable=False)
+    accessed_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+    source: Mapped[str] = mapped_column(Text, default="context")  # e.g., "context", "recall", "api"
+
+    __table_args__ = (
+        Index("idx_category_accesses_category", category),
+        Index("idx_category_accesses_accessed_at", accessed_at.desc()),
+    )

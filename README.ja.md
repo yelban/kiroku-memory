@@ -56,7 +56,7 @@ flowchart TB
         Items --> Embeddings["エンベディング<br/>(pgvector)"]
         Items --> Summary["サマリー<br/>ビルダー"]
 
-        Embeddings --> Retrieve["検索<br/>(階層)"]
+        Embeddings --> Retrieve["検索<br/>(階層+優先度)"]
         Summary --> Retrieve
     end
 ```
@@ -241,6 +241,8 @@ cd kiroku-memory/skill/assets && ./install.sh
 **機能：**
 - **自動ロード**：SessionStart hook がメモリコンテキストを注入
 - **スマート保存**：Stop hook が重要なファクトを自動保存
+- **優先順位ソート**：preferences > facts > goals（ハイブリッド静的+動的重み付け）
+- **スマート切り詰め**：カテゴリの途中で切り詰めない、完全性を維持
 - **クロスプロジェクト**：グローバル + プロジェクト固有のメモリスコープ
 
 #### Hooks が動作していることを確認

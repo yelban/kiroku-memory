@@ -96,6 +96,8 @@ await fetch("http://localhost:8000/ingest", {
 **機能**：
 - SessionStart hook がメモリコンテキストを自動読み込み
 - Stop hook が重要な会話を知的に保存
+- **優先順位ソート**：preferences > facts > goals（ハイブリッド静的+動的重み付け）
+- **スマート切り詰め**：カテゴリの途中で切り詰めない、完全性を維持
 - 手動コマンドでメモリ管理
 
 詳細は `docs/claude-code-integration.md` を参照。
