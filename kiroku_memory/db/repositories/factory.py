@@ -20,8 +20,18 @@ async def get_unit_of_work() -> AsyncGenerator[UnitOfWork, None]:
     backend = getattr(settings, "backend", "postgres")
 
     if backend == "surrealdb":
-        # SurrealDB implementation (Phase 3-4)
-        raise NotImplementedError("SurrealDB backend not yet implemented")
+        # SurrealDB implementation
+        from ..surrealdb import get_surreal_connection
+        from .surrealdb import SurrealUnitOfWork
+
+        async with get_surreal_connection() as client:
+            uow = SurrealUnitOfWork(client)
+            try:
+                yield uow
+                await uow.commit()
+            except Exception:
+                await uow.rollback()
+                raise
     else:
         # PostgreSQL (default)
         from ..database import async_session_factory
