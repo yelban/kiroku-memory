@@ -92,6 +92,37 @@ When context exceeds limit (default 2000 chars):
 - [Filtering Rules](references/filtering-rules.md)
 - [Retrieval Policy](references/retrieval-policy.md)
 
+## Auto-Save: Two-Phase Memory Capture
+
+Stop Hook uses a **Fast + Slow** dual-phase architecture:
+
+### Phase 1: Fast Path (<1s, sync)
+
+Regex-based pattern matching for immediate capture:
+
+| Pattern Type | Examples |
+|--------------|----------|
+| Preferences | `I prefer...`, `I like...` |
+| Decisions | `decided to use...`, `chose...` |
+| Discoveries | `discovered...`, `found that...`, `solution is...` |
+| Learnings | `learned...`, `root cause...`, `the issue was...` |
+
+Also extracts **conclusion markers** from Claude's responses:
+- `解決方案/Solution`, `發現/Discovery`, `結論/Conclusion`
+- `建議/Recommendation`, `根因/Root cause`
+
+### Phase 2: Slow Path (5-15s, async)
+
+Background LLM analysis using Claude CLI:
+
+- Runs in detached subprocess (doesn't block Claude Code)
+- Analyzes last 6 user + 4 assistant messages
+- Extracts up to 5 memories with type/confidence
+- Memory types: `discovery`, `decision`, `learning`, `preference`, `fact`
+- Logs to `~/.cache/kiroku-memory/llm-worker.log`
+
+Both phases share a 24-hour deduplication cache.
+
 ## Installation
 
 ```bash

@@ -124,9 +124,40 @@ curl -fsSL https://raw.githubusercontent.com/yelban/kiroku-memory/main/skill/ass
 ## 功能特色
 
 - **自動載入**：SessionStart hook 自動注入記憶上下文
-- **智慧儲存**：Stop hook 智慧儲存重要事實
+- **雙階段儲存**：Fast Path + Slow Path 混合架構
 - **去重複**：24 小時 TTL 防止重複儲存
-- **模式匹配**：只儲存偏好、決定、事實（忽略噪音）
+- **結論擷取**：從 Claude 回應中擷取關鍵結論
+
+## 自動儲存：雙階段記憶捕捉
+
+Stop Hook 採用**快思慢想**雙階段架構：
+
+### Phase 1: Fast Path (<1s, 同步)
+
+Regex 模式匹配，立即捕捉：
+
+| 模式類型 | 範例 |
+|---------|------|
+| 偏好 | `我喜歡...`、`偏好...` |
+| 決策 | `決定使用...`、`選擇...` |
+| 發現 | `發現...`、`解決方案是...` |
+| 學習 | `學到...`、`原因是...`、`問題在於...` |
+
+同時從 Claude 回應中擷取**結論標記**：
+- `解決方案`、`發現`、`結論`
+- `建議`、`根因`、`核心價值`
+
+### Phase 2: Slow Path (5-15s, 非同步)
+
+背景 LLM 分析，使用 Claude CLI：
+
+- 在脫離的 subprocess 中執行（不阻塞 Claude Code）
+- 分析最近 6 則 user + 4 則 assistant 訊息
+- 擷取最多 5 條記憶，含類型/信心度
+- 記憶類型：`discovery`、`decision`、`learning`、`preference`、`fact`
+- 日誌記錄於 `~/.cache/kiroku-memory/llm-worker.log`
+
+兩個階段共用 24 小時去重複快取。
 
 ## 了解更多
 
