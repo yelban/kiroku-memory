@@ -7,8 +7,8 @@ from openai import AsyncOpenAI
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .db.config import settings
-from .db.models import Item, Embedding
+from kiroku_memory.db.config import settings
+from kiroku_memory.db.models import Item, Embedding
 
 
 # Initialize OpenAI client (lazy)

@@ -89,12 +89,24 @@ class RetrievalResponse(BaseModel):
 
 @app.on_event("startup")
 async def startup():
-    await init_db()
+    from .db.config import settings
+
+    if settings.backend == "surrealdb":
+        from .db.surrealdb import init_surreal_db
+        await init_surreal_db()
+    else:
+        await init_db()
 
 
 @app.on_event("shutdown")
 async def shutdown():
-    await close_db()
+    from .db.config import settings
+
+    if settings.backend == "surrealdb":
+        from .db.surrealdb import close_surreal_db
+        await close_surreal_db()
+    else:
+        await close_db()
 
 
 # ============ Endpoints ============
@@ -427,6 +439,8 @@ async def list_categories_v2():
 @app.get("/v2/stats")
 async def stats_v2():
     """Get memory statistics (v2 - uses repository pattern)"""
+    from .db.config import settings
+
     async with get_unit_of_work() as uow:
         total_items = await uow.items.count()
         active_items = await uow.items.count(status="active")
@@ -434,7 +448,7 @@ async def stats_v2():
         categories = await uow.categories.list()
 
         return {
-            "backend": "postgres",  # Will be dynamic when SurrealDB is added
+            "backend": settings.backend,
             "items": {
                 "total": total_items,
                 "active": active_items,
