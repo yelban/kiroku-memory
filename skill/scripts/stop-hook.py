@@ -272,14 +272,14 @@ def extract_saveable_content(transcript_path: str) -> list:
             for line in f:
                 try:
                     entry = json.loads(line)
-                    role = entry.get("role", "")
+                    entry_type = entry.get("type", "")
 
-                    if role == "user":
+                    if entry_type == "user":
                         content = extract_text_from_entry(entry)
                         if content and should_save(content):
                             user_candidates.append(("user", content))
 
-                    elif role == "assistant":
+                    elif entry_type == "assistant":
                         content = extract_text_from_entry(entry)
                         if content:
                             assistant_entries.append(content)

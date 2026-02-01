@@ -166,15 +166,15 @@ def parse_transcript(transcript_path: str) -> tuple[list, list]:
             for line in f:
                 try:
                     entry = json.loads(line)
-                    role = entry.get("role", "")
+                    entry_type = entry.get("type", "")
                     text = extract_text_from_entry(entry)
 
                     if not text:
                         continue
 
-                    if role == "user":
+                    if entry_type == "user":
                         user_messages.append(text)
-                    elif role == "assistant":
+                    elif entry_type == "assistant":
                         assistant_messages.append(text)
 
                 except json.JSONDecodeError:
