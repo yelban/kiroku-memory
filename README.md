@@ -52,9 +52,11 @@ Plus: **Conflict Resolution** automatically detects contradicting facts, and **C
 
 ### Daniel Kahneman (Nobel Laureate, Cognitive Psychology)
 
-From *"Thinking, Fast and Slow"* — System 1 (intuition) vs System 2 (analysis):
+From *"Thinking, Fast and Slow"* — System 1 (intuition) vs System 2 (analysis).
 
-| Mode | Kiroku Feature | Benefit |
+**Kiroku's implementation:**
+
+| Mode | Feature | Benefit |
 |------|----------------|---------|
 | System 1 | Auto-load context | Claude "knows" you instantly |
 | System 2 | `/remember` command | Explicit marking of important info |
