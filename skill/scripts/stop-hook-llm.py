@@ -242,14 +242,29 @@ def call_claude_cli(prompt: str) -> dict | None:
         # Parse the output
         output = result.stdout.strip()
 
-        # Try to extract JSON from the response
+        # Claude CLI --output-format json wraps response in:
+        # {"type":"result", "result": "actual response text", ...}
+        try:
+            wrapper = json.loads(output)
+            if isinstance(wrapper, dict) and "result" in wrapper:
+                # Extract the actual response from the wrapper
+                response_text = wrapper.get("result", "")
+                log(f"Extracted response ({len(response_text)} chars)")
+            else:
+                response_text = output
+        except json.JSONDecodeError:
+            response_text = output
+            log("Failed to parse wrapper, using raw output")
+
+        # Try to extract memories JSON from the response
         # Claude might wrap it in markdown code blocks
-        json_match = re.search(r'\{[\s\S]*\}', output)
+        json_match = re.search(r'\{[\s\S]*"memories"[\s\S]*\}', response_text)
         if json_match:
             data = json.loads(json_match.group())
             return data
 
-        log(f"Could not parse Claude CLI output: {output[:200]}")
+        # Log actual response for debugging
+        log(f"Response text: {response_text[:500]}")
         return None
 
     except subprocess.TimeoutExpired:
