@@ -151,6 +151,29 @@ uv run ruff format .
 uv run mypy kiroku_memory/
 ```
 
+## トラブルシューティング
+
+### `.venv` スクリプトが "No such file or directory" と表示されるがファイルは存在する
+
+原因：`.venv` 作成時に `VIRTUAL_ENV` 環境変数が別のプロジェクトを指していたため、shebang パスが不正。
+
+```bash
+# shebang を確認
+head -1 .venv/bin/uvicorn
+# 別のプロジェクトのパスが表示される場合、venv を再作成
+
+# 修正
+unset VIRTUAL_ENV
+rm -rf .venv
+uv sync
+```
+
+### `/extract` が空の結果を返すが LLM は正しく応答している
+
+原因：OpenAI が `"object": null` を返すことがあり、Pydantic バリデーションが失敗。
+
+修正済み：`kiroku_memory/extract.py` の `ExtractedFact.object` を `Optional[str]` に変更。
+
 ## 翻訳
 
 - [English](CLAUDE.md)

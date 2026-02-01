@@ -151,6 +151,29 @@ uv run ruff format .
 uv run mypy kiroku_memory/
 ```
 
+## Troubleshooting
+
+### `.venv` scripts report "No such file or directory" but file exists
+
+Cause: `VIRTUAL_ENV` env var pointed to another project when `.venv` was created, causing incorrect shebang paths.
+
+```bash
+# Check shebang
+head -1 .venv/bin/uvicorn
+# If it shows another project's path, rebuild venv
+
+# Fix
+unset VIRTUAL_ENV
+rm -rf .venv
+uv sync
+```
+
+### `/extract` returns empty items but LLM responded correctly
+
+Cause: OpenAI sometimes returns `"object": null` in extracted facts, causing Pydantic validation failure.
+
+Fixed in `kiroku_memory/extract.py`: `ExtractedFact.object` is now `Optional[str]`.
+
 ## Translations
 
 - [繁體中文](CLAUDE.zh-TW.md)

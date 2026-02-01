@@ -26,13 +26,24 @@ from pathlib import Path
 KIROKU_API = os.environ.get("KIROKU_API", "http://localhost:8000")
 CACHE_DIR = Path.home() / ".cache" / "kiroku-memory"
 CACHE_FILE = CACHE_DIR / "recent_saves.json"
-MIN_CONTENT_LENGTH = 50
+MIN_LENGTH_WITH_PATTERN = 10   # Weighted length threshold when SAVE_PATTERN matched
+MIN_LENGTH_NO_PATTERN = 35     # Weighted length threshold for unmatched content
 DEDUP_HOURS = 24
+
+# CJK character detection (Chinese, Japanese Hiragana/Katakana)
+CJK_PATTERN = re.compile(r'[\u4e00-\u9fff\u3040-\u309f\u30a0-\u30ff]')
+
+
+def weighted_length(content: str) -> float:
+    """Calculate weighted length: CJK chars count as 2.5x, others as 1x."""
+    cjk_count = len(CJK_PATTERN.findall(content))
+    non_cjk = len(content) - cjk_count
+    return cjk_count * 2.5 + non_cjk
 
 # Patterns that indicate save-worthy content
 SAVE_PATTERNS = [
-    r"(?:我|用戶|user)\s*(?:喜歡|偏好|prefer|like)",
-    r"(?:我|用戶|user)\s*(?:不喜歡|討厭|dislike|hate)",
+    r"(?:I|我|用戶|user)\s*(?:喜歡|偏好|prefer|like)",
+    r"(?:I|我|用戶|user)\s*(?:不喜歡|討厭|dislike|hate)",
     r"(?:決定|decide|chosen?|selected?)",
     r"(?:記住|remember|note that)",
     r"(?:設定|config|setting)",
@@ -115,24 +126,29 @@ def mark_saved(content: str, source: str, recent: dict):
 
 
 def should_save(content: str) -> bool:
-    """Determine if content is worth saving."""
+    """Determine if content is worth saving.
+
+    Pattern-first, weighted-length-second approach:
+    1. Reject noise patterns immediately
+    2. Calculate weighted length (CJK chars count as 2.5x)
+    3. If SAVE_PATTERN matched → lower threshold
+    4. No pattern matched → higher threshold
+    """
     content_lower = content.lower().strip()
+    w_len = weighted_length(content)
 
-    # Too short
-    if len(content) < MIN_CONTENT_LENGTH:
-        return False
-
-    # Check noise patterns
+    # 1. Check noise patterns first - reject immediately
     for pattern in NOISE_PATTERNS:
         if re.search(pattern, content_lower, re.IGNORECASE):
             return False
 
-    # Check save patterns
+    # 2. Check save patterns - if matched, use lower threshold
     for pattern in SAVE_PATTERNS:
         if re.search(pattern, content_lower, re.IGNORECASE):
-            return True
+            return w_len >= MIN_LENGTH_WITH_PATTERN
 
-    return False
+    # 3. No pattern matched - use higher threshold
+    return w_len >= MIN_LENGTH_NO_PATTERN
 
 
 def extract_saveable_content(transcript_path: str) -> list:

@@ -26,7 +26,7 @@ class ExtractedFact(BaseModel):
     """A single extracted fact"""
     subject: str
     predicate: str
-    object: str
+    object: Optional[str] = None
     category: str
     confidence: float = 1.0
 
