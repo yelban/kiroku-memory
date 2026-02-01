@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 import pytest
@@ -292,7 +292,7 @@ class TestSurrealCategoryAccessRepository:
         old_access = CategoryAccessEntity(
             id=uuid4(),
             category="old",
-            accessed_at=datetime.utcnow() - timedelta(days=30),
+            accessed_at=datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=30),
         )
         new_access = CategoryAccessEntity(
             id=uuid4(),
@@ -302,7 +302,7 @@ class TestSurrealCategoryAccessRepository:
         await surreal_uow.category_accesses.create(new_access)
 
         # Cleanup old (older than 7 days)
-        cutoff = datetime.utcnow() - timedelta(days=7)
+        cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=7)
         deleted = await surreal_uow.category_accesses.cleanup_old(cutoff)
         assert deleted == 1
 
