@@ -94,8 +94,9 @@ Full Claude Code integration implemented:
 ```
 
 **Features**:
-- SessionStart hook auto-loads memory context
-- Stop hook intelligently saves important conversations
+- **SessionStart hook**: Auto-loads memory context
+- **PostToolUse hook**: Incremental capture during long conversations (throttled)
+- **Stop hook**: Two-phase capture (Fast regex + Slow LLM)
 - **Priority ordering**: preferences > facts > goals (hybrid static+dynamic weights)
 - **Smart truncation**: Never truncates mid-category, maintains completeness
 - Manual commands for memory management

@@ -366,6 +366,17 @@ Background LLM analysis using Claude CLI:
 - Questions: `What is...`, `How to...`
 - Errors: `error`, `failed`
 
+#### Incremental Capture (PostToolUse Hook)
+
+For long conversations, memories are captured incrementally during the session:
+
+- **Trigger**: After each tool use, with throttling
+- **Throttle conditions**: ≥5 min interval AND ≥10 new messages
+- **Offset tracking**: Only analyzes new messages since last capture
+- **Smart skip**: Skips if content too short
+
+This distributes the capture load and ensures early conversation content isn't lost.
+
 See [Claude Code Integration Guide](docs/claude-code-integration.md) for details.
 
 ### With MCP Server (Advanced)
