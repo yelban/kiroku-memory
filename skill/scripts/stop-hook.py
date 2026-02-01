@@ -7,10 +7,16 @@ to detect save-worthy information (preferences, decisions, facts) and
 ingests them to Kiroku Memory.
 
 Smart filtering rules:
-- Only save explicit preferences, decisions, or stable facts
+- Analyze BOTH user messages AND assistant conclusions
+- Only save explicit preferences, decisions, discoveries, or stable facts
 - Ignore greetings, confirmations, trivial chat
 - Require minimum content length
 - Deduplicate recent saves
+
+Phase 1 improvements (2026-02-01):
+- Expanded to analyze assistant messages with conclusion markers
+- Relaxed NOISE_PATTERNS (removed "請/please" filter)
+- Extended SAVE_PATTERNS for discoveries, decisions, learnings
 """
 
 import hashlib
@@ -29,6 +35,7 @@ CACHE_FILE = CACHE_DIR / "recent_saves.json"
 MIN_LENGTH_WITH_PATTERN = 10   # Weighted length threshold when SAVE_PATTERN matched
 MIN_LENGTH_NO_PATTERN = 35     # Weighted length threshold for unmatched content
 DEDUP_HOURS = 24
+MAX_ASSISTANT_MESSAGES = 4     # Only analyze last N assistant messages
 
 # CJK character detection (Chinese, Japanese Hiragana/Katakana)
 CJK_PATTERN = re.compile(r'[\u4e00-\u9fff\u3040-\u309f\u30a0-\u30ff]')
@@ -40,26 +47,65 @@ def weighted_length(content: str) -> float:
     non_cjk = len(content) - cjk_count
     return cjk_count * 2.5 + non_cjk
 
-# Patterns that indicate save-worthy content
+
+# Patterns that indicate save-worthy content (user messages)
 SAVE_PATTERNS = [
+    # Preferences (existing)
     r"(?:I|我|用戶|user)\s*(?:喜歡|偏好|prefer|like)",
     r"(?:I|我|用戶|user)\s*(?:不喜歡|討厭|dislike|hate)",
+    # Decisions (existing + new)
     r"(?:決定|decide|chosen?|selected?)",
+    r"(?:選擇|採用|choose|adopt)",
+    r"(?:使用|use)\s*\S+\s*(?:而非|instead of|over)",
+    # Memory markers (existing)
     r"(?:記住|remember|note that)",
+    # Settings/Config (existing)
     r"(?:設定|config|setting)",
+    # Facts (existing)
     r"(?:工作於|work at|employed)",
     r"(?:住在|live in|located)",
+    # Project decisions (existing + new)
     r"(?:專案|project)\s*(?:使用|use)",
     r"(?:架構|architecture|design)\s*(?:決定|decision)",
+    # Technical discoveries (new)
+    r"(?:發現|发现|discovered?|found that)",
+    r"(?:解決方案|solution)\s*(?:是|:)",
+    r"(?:原因是|root cause|because)",
+    r"(?:問題是|the issue|the problem)",
+    # Learnings (new)
+    r"(?:學到|learned|學習心得)",
+    r"(?:心得|經驗|experience|takeaway)",
+    r"(?:原來|it turns out|actually)",
 ]
 
 # Patterns that indicate noise (should NOT save)
+# Note: Removed "請/please" filter to allow polite requests with valuable content
 NOISE_PATTERNS = [
     r"^(?:ok|好的?|是的?|對|沒問題|understood|got it|sure|yes|no)[\s.!]*$",
     r"^(?:謝謝|thanks?|thank you)[\s.!]*$",
-    r"^(?:請|please|can you|could you)",
     r"^(?:什麼|怎麼|如何|what|how|why|when|where)\s*(?:是|意思)?",
     r"(?:error|錯誤|failed|失敗)",
+]
+
+# Conclusion markers for assistant messages
+# Only extract content near these markers from Claude's responses
+CONCLUSION_MARKERS = [
+    # Solution/Discovery
+    r"(?:解決方案|solution)",
+    r"(?:發現|discovered?|finding)",
+    r"(?:結論|conclusion)",
+    # Recommendations
+    r"(?:建議|recommend|suggest)",
+    r"(?:核心價值|core value|key insight)",
+    # Root cause
+    r"(?:根因|root cause|原因是)",
+    r"(?:問題在於|the issue is|the problem is)",
+    # Summary markers
+    r"(?:總結|summary|in summary)",
+    r"(?:重點|key point|takeaway)",
+    # Learning/Experience
+    r"(?:學到的經驗|lessons learned)",
+    r"(?:這表示|this means|this indicates)",
 ]
 
 
@@ -151,9 +197,74 @@ def should_save(content: str) -> bool:
     return w_len >= MIN_LENGTH_NO_PATTERN
 
 
+def extract_text_from_entry(entry: dict) -> str:
+    """Extract text content from a transcript entry."""
+    msg = entry.get("message", {})
+    if isinstance(msg, dict):
+        content_list = msg.get("content", [])
+        for c in content_list:
+            if isinstance(c, dict) and c.get("type") == "text":
+                return c.get("text", "").strip()
+    elif isinstance(msg, str):
+        return msg.strip()
+    return ""
+
+
+def extract_conclusion_snippets(text: str, max_length: int = 200) -> list:
+    """Extract meaningful snippets near conclusion markers from assistant text.
+
+    Returns list of extracted snippets that contain conclusion markers.
+    Each snippet is trimmed to max_length characters around the marker.
+    """
+    snippets = []
+    text_lower = text.lower()
+
+    for marker_pattern in CONCLUSION_MARKERS:
+        matches = list(re.finditer(marker_pattern, text_lower, re.IGNORECASE))
+        for match in matches:
+            start = match.start()
+            # Find sentence boundaries around the marker
+            # Look backwards for sentence start
+            sentence_start = max(0, start - 100)
+            for i in range(start - 1, sentence_start, -1):
+                if text[i] in '.。!！?？\n':
+                    sentence_start = i + 1
+                    break
+
+            # Look forward for sentence end
+            sentence_end = min(len(text), start + max_length)
+            for i in range(start + len(match.group()), sentence_end):
+                if i < len(text) and text[i] in '.。!！?？\n':
+                    sentence_end = i + 1
+                    break
+
+            snippet = text[sentence_start:sentence_end].strip()
+            if snippet and len(snippet) > 15:  # Minimum meaningful length
+                snippets.append(snippet)
+
+    # Deduplicate and limit
+    seen = set()
+    unique_snippets = []
+    for s in snippets:
+        s_hash = s[:50]  # Use prefix for dedup
+        if s_hash not in seen:
+            seen.add(s_hash)
+            unique_snippets.append(s)
+        if len(unique_snippets) >= 3:
+            break
+
+    return unique_snippets
+
+
 def extract_saveable_content(transcript_path: str) -> list:
-    """Extract save-worthy content from transcript."""
-    candidates = []
+    """Extract save-worthy content from transcript.
+
+    Analyzes both user and assistant messages:
+    - User messages: Apply SAVE_PATTERNS matching
+    - Assistant messages: Extract conclusion marker snippets from last N messages
+    """
+    user_candidates = []
+    assistant_entries = []
 
     try:
         with open(transcript_path) as f:
@@ -161,48 +272,58 @@ def extract_saveable_content(transcript_path: str) -> list:
                 try:
                     entry = json.loads(line)
                     role = entry.get("role", "")
-                    content = ""
 
-                    # Extract text content
                     if role == "user":
-                        msg = entry.get("message", {})
-                        if isinstance(msg, dict):
-                            content_list = msg.get("content", [])
-                            for c in content_list:
-                                if isinstance(c, dict) and c.get("type") == "text":
-                                    content = c.get("text", "")
-                                    break
-                        elif isinstance(msg, str):
-                            content = msg
+                        content = extract_text_from_entry(entry)
+                        if content and should_save(content):
+                            user_candidates.append(("user", content))
 
-                    if content and should_save(content):
-                        candidates.append(content)
+                    elif role == "assistant":
+                        content = extract_text_from_entry(entry)
+                        if content:
+                            assistant_entries.append(content)
 
                 except json.JSONDecodeError:
                     continue
     except Exception:
         pass
 
-    # Return unique candidates, last 3 only
+    # Process last N assistant messages for conclusion markers
+    assistant_candidates = []
+    for text in assistant_entries[-MAX_ASSISTANT_MESSAGES:]:
+        snippets = extract_conclusion_snippets(text)
+        for snippet in snippets:
+            if weighted_length(snippet) >= MIN_LENGTH_WITH_PATTERN:
+                assistant_candidates.append(("assistant", snippet))
+
+    # Combine candidates: user first, then assistant
+    all_candidates = user_candidates + assistant_candidates
+
+    # Return unique candidates, last 5 only (increased from 3)
     seen = set()
     unique = []
-    for c in reversed(candidates):
-        if c not in seen:
-            seen.add(c)
-            unique.append(c)
-        if len(unique) >= 3:
+    for role, content in reversed(all_candidates):
+        content_key = content[:100]  # Use prefix for dedup
+        if content_key not in seen:
+            seen.add(content_key)
+            unique.append((role, content))
+        if len(unique) >= 5:
             break
 
     return list(reversed(unique))
 
 
-def ingest_memory(content: str, source: str) -> bool:
+def ingest_memory(content: str, source: str, role: str = "user") -> bool:
     """Send content to Kiroku Memory API."""
     try:
         payload = {
             "content": content,
             "source": source,
-            "metadata": {"auto_saved": True, "hook": "stop"}
+            "metadata": {
+                "auto_saved": True,
+                "hook": "stop",
+                "source_role": role
+            }
         }
 
         data = json.dumps(payload).encode("utf-8")
@@ -254,16 +375,16 @@ def main():
         # Load recent saves for deduplication
         recent = load_recent_saves()
 
-        # Extract saveable content
+        # Extract saveable content (now includes assistant conclusions)
         candidates = extract_saveable_content(transcript_path)
 
         # Save each candidate
         saved_count = 0
-        for content in candidates:
+        for role, content in candidates:
             if is_duplicate(content, source, recent):
                 continue
 
-            if ingest_memory(content, source):
+            if ingest_memory(content, source, role):
                 mark_saved(content, source, recent)
                 saved_count += 1
 
