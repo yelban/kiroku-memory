@@ -143,6 +143,78 @@ For large datasets, consider:
 - Using SSD storage for SurrealKV data directory
 - Adjusting HNSW index parameters in `schema.surql`
 
+## Python SDK Usage Notes
+
+The SurrealDB Python SDK has specific requirements for parameterized queries:
+
+### RecordID for parameterized IDs
+
+When using record IDs in parameterized queries, use `RecordID` objects instead of strings:
+
+```python
+from surrealdb import RecordID
+
+# ❌ Wrong - string ID causes "Can not execute UPDATE statement" error
+await client.query(
+    "UPDATE item SET status = $status WHERE id = $id",
+    {"id": f"item:{item_id}", "status": "archived"}
+)
+
+# ✅ Correct - RecordID object
+record_id = RecordID("item", str(item_id))
+await client.query(
+    "UPDATE $id SET status = $status",
+    {"id": record_id, "status": "archived"}
+)
+```
+
+### datetime with timezone
+
+SCHEMAFULL tables require Python datetime objects with timezone info:
+
+```python
+from datetime import datetime, timezone
+
+# ❌ Wrong - ISO string or naive datetime
+await client.query(
+    "SELECT * FROM item WHERE created_at > $since",
+    {"since": "2026-01-01T00:00:00Z"}  # String won't work
+)
+
+# ✅ Correct - aware datetime object
+since = datetime.now(timezone.utc)
+await client.query(
+    "SELECT * FROM item WHERE created_at > $since",
+    {"since": since}
+)
+```
+
+### Use select() for single record lookup
+
+```python
+# ❌ Wrong - returns string instead of record
+result = await client.query("SELECT * FROM $id", {"id": record_id})
+
+# ✅ Correct - use select() method
+result = await client.select(record_id)
+```
+
+### Parsing RecordID from results
+
+The SDK may return `RecordID` objects instead of strings:
+
+```python
+def parse_record_id(record_id) -> UUID:
+    # Handle RecordID object from SDK
+    if hasattr(record_id, "id") and hasattr(record_id, "table_name"):
+        return UUID(str(record_id.id))
+    # Handle string format 'table:uuid'
+    if isinstance(record_id, str) and ":" in record_id:
+        uuid_part = record_id.split(":", 1)[1]
+        return UUID(uuid_part.strip("⟨⟩<>"))
+    return UUID(str(record_id))
+```
+
 ## Schema Reference
 
 See `kiroku_memory/db/surrealdb/schema.surql` for the full schema definition including:
