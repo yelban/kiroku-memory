@@ -238,6 +238,26 @@ curl "http://localhost:8000/context"
 | GET | `/metrics` | アプリケーションメトリクス |
 | POST | `/metrics/reset` | メトリクスをリセット |
 
+### スケジュールジョブ (macOS)
+
+launchd 自動メンテナンスジョブをインストール：
+
+```bash
+bash launchd/install.sh
+```
+
+| ジョブ | スケジュール | 説明 |
+|--------|-------------|------|
+| nightly | 毎日 03:00 | 減衰計算、クリーンアップ、サマリー更新 |
+| weekly | 日曜 04:00 | アーカイブ、圧縮 |
+| monthly | 毎月1日 05:00 | embeddings 再構築、graph 再構築 |
+
+インストールを確認：
+
+```bash
+launchctl list | grep kiroku
+```
+
 ## 統合
 
 ### Claude Code との統合（推奨）

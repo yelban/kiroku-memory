@@ -238,6 +238,26 @@ curl "http://localhost:8000/context"
 | GET | `/metrics` | 應用程式指標 |
 | POST | `/metrics/reset` | 重設指標 |
 
+### 排程任務 (macOS)
+
+安裝 launchd 自動維護任務：
+
+```bash
+bash launchd/install.sh
+```
+
+| 任務 | 排程 | 說明 |
+|------|------|------|
+| nightly | 每日 03:00 | 衰減計算、清理、摘要更新 |
+| weekly | 週日 04:00 | 封存、壓縮 |
+| monthly | 每月1日 05:00 | embeddings 重建、graph 重建 |
+
+驗證安裝：
+
+```bash
+launchctl list | grep kiroku
+```
+
 ## 整合
 
 ### 與 Claude Code 整合（推薦）

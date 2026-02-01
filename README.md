@@ -238,6 +238,26 @@ curl "http://localhost:8000/context"
 | GET | `/metrics` | Application metrics |
 | POST | `/metrics/reset` | Reset metrics |
 
+### Scheduled Jobs (macOS)
+
+Install launchd jobs for automatic maintenance:
+
+```bash
+bash launchd/install.sh
+```
+
+| Job | Schedule | Description |
+|-----|----------|-------------|
+| nightly | 03:00 daily | Decay calculation, cleanup, summaries |
+| weekly | 04:00 Sunday | Archive, compress |
+| monthly | 05:00 1st | Embeddings rebuild, graph rebuild |
+
+Verify installation:
+
+```bash
+launchctl list | grep kiroku
+```
+
 ## Integration
 
 ### With Claude Code (Recommended)
