@@ -108,7 +108,41 @@ flowchart TB
     end
 ```
 
-## Quick Start
+## Desktop App
+
+The easiest way to run Kiroku Memory — no Docker, no Python setup required.
+
+### Download
+
+Download the latest release for your platform from [GitHub Releases](https://github.com/yelban/kiroku-memory/releases):
+
+| Platform | Architecture | Format |
+|----------|-------------|--------|
+| macOS | Apple Silicon (M1/M2/M3) | `.dmg` |
+| macOS | Intel | `.dmg` |
+| Windows | x86_64 | `.msi` |
+| Linux | x86_64 | `.AppImage` |
+
+### Usage
+
+1. **Install**: Double-click the downloaded file to install
+2. **Run**: Launch "Kiroku Memory" from your applications
+3. **Configure** (Optional): Click settings icon to add your OpenAI API Key for semantic search
+
+The Desktop App uses embedded SurrealDB — all data is stored locally with zero external dependencies.
+
+### Features
+
+- **Zero Configuration**: Works out of the box, no Docker or database setup
+- **Embedded Database**: SurrealDB stores data in your app data directory
+- **Cross-Platform**: Native apps for macOS, Windows, and Linux
+- **Same API**: Full REST API available at `http://127.0.0.1:8000`
+
+---
+
+## Quick Start (Developer)
+
+For developers who want to run from source or customize the system.
 
 ### Prerequisites
 

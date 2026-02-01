@@ -108,7 +108,41 @@ flowchart TB
     end
 ```
 
-## 快速開始
+## 桌面應用程式
+
+最簡單的 Kiroku Memory 使用方式 — 不需要 Docker，不需要 Python 環境。
+
+### 下載
+
+從 [GitHub Releases](https://github.com/yelban/kiroku-memory/releases) 下載適合你平台的版本：
+
+| 平台 | 架構 | 格式 |
+|------|------|------|
+| macOS | Apple Silicon (M1/M2/M3) | `.dmg` |
+| macOS | Intel | `.dmg` |
+| Windows | x86_64 | `.msi` |
+| Linux | x86_64 | `.AppImage` |
+
+### 使用方式
+
+1. **安裝**：雙擊下載的檔案進行安裝
+2. **執行**：從應用程式中啟動「Kiroku Memory」
+3. **設定**（選用）：點擊設定圖示新增 OpenAI API Key 以啟用語義搜尋
+
+桌面應用程式使用內嵌的 SurrealDB — 所有資料都儲存在本機，不需要任何外部相依。
+
+### 特色
+
+- **零設定**：開箱即用，不需要 Docker 或資料庫設定
+- **內嵌資料庫**：SurrealDB 將資料儲存在應用程式資料目錄
+- **跨平台**：macOS、Windows、Linux 原生應用程式
+- **相同 API**：完整 REST API 可在 `http://127.0.0.1:8000` 使用
+
+---
+
+## 快速開始（開發者）
+
+適合想從原始碼執行或自訂系統的開發者。
 
 ### 環境需求
 
