@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Optional, Sequence
 from uuid import UUID
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select, func, update, and_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -188,7 +188,7 @@ class PostgresItemRepository(ItemRepository):
 
     async def count_by_subject_recent(self, subject: str, days: int) -> int:
         """Count items with given subject created in last N days"""
-        cutoff = datetime.utcnow() - timedelta(days=days)
+        cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=days)
         result = await self._session.execute(
             select(func.count(Item.id)).where(
                 and_(
@@ -214,7 +214,7 @@ class PostgresItemRepository(ItemRepository):
         self, max_age_days: int, min_confidence: float
     ) -> list[ItemEntity]:
         """List items older than max_age_days with confidence below min_confidence"""
-        cutoff = datetime.utcnow() - timedelta(days=max_age_days)
+        cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=max_age_days)
         result = await self._session.execute(
             select(Item).where(
                 and_(

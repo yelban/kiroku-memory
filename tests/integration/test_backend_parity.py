@@ -7,7 +7,7 @@ Run with: pytest tests/integration/ -v
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 import pytest
@@ -225,7 +225,7 @@ class TestCategoryAccessOperations:
         old = CategoryAccessEntity(
             id=uuid4(),
             category="old",
-            accessed_at=datetime.utcnow() - timedelta(days=30),
+            accessed_at=datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=30),
         )
         new = CategoryAccessEntity(
             id=uuid4(),
@@ -235,7 +235,7 @@ class TestCategoryAccessOperations:
         await unit_of_work.category_accesses.create(new)
 
         # Cleanup
-        cutoff = datetime.utcnow() - timedelta(days=7)
+        cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=7)
         deleted = await unit_of_work.category_accesses.cleanup_old(cutoff)
         assert deleted == 1
 

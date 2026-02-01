@@ -10,10 +10,17 @@ from typing import AsyncGenerator
 import pytest
 import pytest_asyncio
 
+from sqlalchemy.ext.asyncio import (
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
+
 from kiroku_memory.db.config import settings
+from kiroku_memory.db.models import Base
 
 
-@pytest.fixture(params=["surrealdb"])  # Add "postgres" when DB is available
+@pytest.fixture(params=["postgres", "surrealdb"])
 def backend(request):
     """Parameterized fixture for testing both backends"""
     return request.param
@@ -31,7 +38,7 @@ async def unit_of_work(backend) -> AsyncGenerator:
         from surrealdb import AsyncSurreal
         from kiroku_memory.db.repositories.surrealdb import SurrealUnitOfWork
 
-        # Use temporary directory
+        # Use temporary directory (each test gets clean slate)
         with tempfile.TemporaryDirectory() as tmpdir:
             url = f"file://{tmpdir}/test"
 
@@ -52,18 +59,39 @@ async def unit_of_work(backend) -> AsyncGenerator:
 
     elif backend == "postgres":
         # Skip if no database URL configured
-        if not os.environ.get("DATABASE_URL"):
+        db_url = os.environ.get("DATABASE_URL")
+        if not db_url:
             pytest.skip("DATABASE_URL not configured")
 
-        from kiroku_memory.db.database import async_session_factory, init_db
         from kiroku_memory.db.repositories.postgres import PostgresUnitOfWork
 
         settings.backend = "postgres"
-        await init_db()
 
-        async with async_session_factory() as session:
+        # Create fresh engine for each test
+        engine = create_async_engine(
+            db_url,
+            echo=False,
+            pool_size=1,
+            max_overflow=0,
+        )
+
+        session_factory = async_sessionmaker(
+            engine,
+            class_=AsyncSession,
+            expire_on_commit=False,
+        )
+
+        # Initialize tables
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+
+        # Create session for this test
+        async with session_factory() as session:
             uow = PostgresUnitOfWork(session)
             yield uow
-            await session.rollback()  # Don't persist test data
+            await session.rollback()
+
+        # Dispose engine to release connections
+        await engine.dispose()
 
     settings.backend = original_backend

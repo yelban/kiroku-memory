@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
 
@@ -81,7 +81,7 @@ class PostgresResourceRepository(ResourceRepository):
 
     async def delete_orphaned(self, max_age_days: int) -> int:
         """Delete resources older than max_age_days with no associated items"""
-        cutoff = datetime.utcnow() - timedelta(days=max_age_days)
+        cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=max_age_days)
 
         # Find resources without items
         subquery = select(Item.resource_id).where(Item.resource_id.isnot(None))

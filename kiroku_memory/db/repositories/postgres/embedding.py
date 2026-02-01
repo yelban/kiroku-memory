@@ -75,15 +75,16 @@ class PostgresEmbeddingRepository(EmbeddingRepository):
         query_vec_str = str(query_vector)
 
         # Cosine similarity search using pgvector
+        # Use CAST() instead of :: to avoid SQLAlchemy parameter parsing issues
         sql = text("""
             SELECT
                 i.id, i.created_at, i.resource_id, i.subject, i.predicate,
                 i.object, i.category, i.confidence, i.status, i.supersedes,
-                1 - (e.embedding <=> :query_vec::vector) as similarity
+                1 - (e.embedding <=> CAST(:query_vec AS vector)) as similarity
             FROM items i
             JOIN embeddings e ON i.id = e.item_id
             WHERE i.status = :status
-              AND 1 - (e.embedding <=> :query_vec::vector) >= :min_sim
+              AND 1 - (e.embedding <=> CAST(:query_vec AS vector)) >= :min_sim
             ORDER BY similarity DESC
             LIMIT :limit
         """)

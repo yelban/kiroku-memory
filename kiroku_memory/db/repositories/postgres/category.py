@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
 
@@ -73,7 +73,7 @@ class PostgresCategoryRepository(CategoryRepository):
         await self._session.execute(
             update(Category)
             .where(Category.name == name)
-            .values(summary=summary, updated_at=datetime.utcnow())
+            .values(summary=summary, updated_at=datetime.now(timezone.utc).replace(tzinfo=None))
         )
 
     async def upsert(self, entity: CategoryEntity) -> UUID:
@@ -85,7 +85,7 @@ class PostgresCategoryRepository(CategoryRepository):
                 .where(Category.name == entity.name)
                 .values(
                     summary=entity.summary,
-                    updated_at=datetime.utcnow(),
+                    updated_at=datetime.now(timezone.utc).replace(tzinfo=None),
                 )
             )
             return existing.id
