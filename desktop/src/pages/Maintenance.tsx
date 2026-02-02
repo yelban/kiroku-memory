@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../components/ui/card";
+import { Button } from "../components/ui/button";
 import {
   Wrench,
   RefreshCw,
@@ -11,7 +11,7 @@ import {
   Check,
   AlertTriangle,
 } from "lucide-react";
-import { restartService, stopService, getDataDir, getServiceStatus, isServiceRunning } from "@/lib/api";
+import { restartService, stopService, getDataDir, getServiceStatus, isServiceRunning } from "../lib/api";
 
 interface MaintenancePageProps {
   onRefresh: () => void;

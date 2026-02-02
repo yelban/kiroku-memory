@@ -1,8 +1,8 @@
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "../components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { RefreshCw, Activity, Database, Layers } from "lucide-react";
-import { cn } from "@/lib/utils";
-import type { HealthResponse } from "@/lib/api";
+import { cn } from "../lib/utils";
+import type { HealthResponse } from "../lib/api";
 
 interface Stats {
   backend: string;

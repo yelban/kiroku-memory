@@ -1,10 +1,10 @@
 import { useEffect, useState, useCallback } from "react";
 import { listen } from "@tauri-apps/api/event";
-import { Layout } from "@/components/layout/Layout";
-import { StatusPage } from "@/pages/Status";
-import { MemoriesPage } from "@/pages/Memories";
-import { SettingsPage } from "@/pages/Settings";
-import { MaintenancePage } from "@/pages/Maintenance";
+import { Layout } from "./components/layout/Layout";
+import { StatusPage } from "./pages/Status";
+import { MemoriesPage } from "./pages/Memories";
+import { SettingsPage } from "./pages/Settings";
+import { MaintenancePage } from "./pages/Maintenance";
 import {
   getServiceStatus,
   checkHealth,
@@ -13,7 +13,7 @@ import {
   type HealthResponse,
   isServiceRunning,
   isServiceError,
-} from "@/lib/api";
+} from "./lib/api";
 
 type UIStatus = "loading" | "healthy" | "error" | "restarting";
 

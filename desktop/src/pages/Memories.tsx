@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { Badge } from "../components/ui/badge";
 import {
   Brain,
   Search,
@@ -14,7 +14,7 @@ import {
   X,
   RefreshCw,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "../lib/utils";
 import {
   getItems,
   getCategories,
@@ -22,7 +22,7 @@ import {
   type Item,
   type Category,
   type RetrievalResponse,
-} from "@/lib/api";
+} from "../lib/api";
 
 export function MemoriesPage() {
   const [items, setItems] = useState<Item[]>([]);
