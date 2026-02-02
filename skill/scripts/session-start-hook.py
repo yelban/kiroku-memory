@@ -13,7 +13,7 @@ import urllib.request
 import urllib.error
 
 KIROKU_API = os.environ.get("KIROKU_API", "http://localhost:8000")
-MAX_CONTEXT_CHARS = 2000  # Limit context size
+MAX_CONTEXT_CHARS = int(os.environ.get("KIROKU_MAX_CONTEXT_CHARS", "12000"))  # ~4000 tokens
 
 
 def get_project_name():
@@ -31,11 +31,16 @@ def get_project_name():
     return None
 
 
-def fetch_context(categories: str = None) -> str:
+def fetch_context(categories: str = None, max_chars: int = None) -> str:
     """Fetch tiered context from Kiroku Memory API."""
     url = f"{KIROKU_API}/context"
+    params = []
     if categories:
-        url += f"?categories={categories}"
+        params.append(f"categories={categories}")
+    if max_chars:
+        params.append(f"max_chars={max_chars}")
+    if params:
+        url += "?" + "&".join(params)
 
     req = urllib.request.Request(url, method="GET")
     with urllib.request.urlopen(req, timeout=5) as resp:
@@ -50,19 +55,15 @@ def count_categories(context: str) -> int:
 
 def main():
     try:
-        # Fetch global + project context
-        context = fetch_context()
+        # Fetch global + project context (API handles smart truncation)
+        context = fetch_context(max_chars=MAX_CONTEXT_CHARS)
 
         if not context or context.strip() == "":
             # No memories, exit silently
             sys.exit(0)
 
-        # Count categories before truncation
+        # Count categories
         category_count = count_categories(context)
-
-        # Truncate if too long
-        if len(context) > MAX_CONTEXT_CHARS:
-            context = context[:MAX_CONTEXT_CHARS] + "\n\n...(truncated)"
 
         # Output JSON with systemMessage (shown to user) and context
         output = {
