@@ -23,6 +23,27 @@ Kiroku Memory is an AI Agent memory system that stores, organizes, and retrieves
 3. Drag **Kiroku Memory** to your **Applications** folder
 4. Launch from Applications
 
+#### macOS: First Launch (Unsigned App)
+
+The app is not signed with an Apple Developer certificate. On first launch, macOS Gatekeeper will block it:
+
+> "Kiroku Memory" can't be opened because Apple cannot check it for malicious software.
+
+**To allow the app:**
+
+**Method 1: Right-click to open**
+1. Right-click (or Control-click) on **Kiroku Memory.app**
+2. Select **Open** from the context menu
+3. Click **Open** in the dialog
+
+**Method 2: System Settings**
+1. Open **System Settings** → **Privacy & Security**
+2. Scroll down to find the blocked app message
+3. Click **Open Anyway**
+4. Enter your password if prompted
+
+After allowing once, the app will open normally in the future.
+
 ### Option 2: Build from Source
 
 ```bash

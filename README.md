@@ -129,6 +129,27 @@ Download the latest release for your platform from [GitHub Releases](https://git
 2. **Run**: Launch "Kiroku Memory" from your applications
 3. **Configure** (Optional): Click settings icon to add your OpenAI API Key for semantic search
 
+#### macOS: First Launch (Unsigned App)
+
+The app is not signed with an Apple Developer certificate. On first launch, macOS Gatekeeper will block it:
+
+> "Kiroku Memory" can't be opened because Apple cannot check it for malicious software.
+
+**To allow the app:**
+
+**Method 1: Right-click to open**
+1. Right-click (or Control-click) on **Kiroku Memory.app**
+2. Select **Open** from the context menu
+3. Click **Open** in the dialog
+
+**Method 2: System Settings**
+1. Open **System Settings** → **Privacy & Security**
+2. Scroll down to find the blocked app message
+3. Click **Open Anyway**
+4. Enter your password if prompted
+
+After allowing once, the app will open normally in the future.
+
 The Desktop App uses embedded SurrealDB — all data is stored locally with zero external dependencies.
 
 ### Features
