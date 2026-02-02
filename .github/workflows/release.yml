@@ -165,6 +165,35 @@ jobs:
           # Verify certificate
           security find-identity -v -p codesigning $KEYCHAIN_PATH
 
+      # Sign all binaries in Python bundle before Tauri build
+      - name: Sign Python bundle binaries
+        if: matrix.platform == 'darwin'
+        env:
+          APPLE_SIGNING_IDENTITY: "Developer ID Application: JINGYI Hsu (TXU8UPLYJP)"
+        run: |
+          echo "Signing all .so and .dylib files in Python bundle..."
+          PYTHON_BUNDLE="tools/packaging/dist/current/python"
+
+          # Find and sign all .so files
+          find "$PYTHON_BUNDLE" -name "*.so" -type f | while read -r file; do
+            echo "Signing: $file"
+            codesign --force --options runtime --timestamp --sign "$APPLE_SIGNING_IDENTITY" "$file"
+          done
+
+          # Find and sign all .dylib files
+          find "$PYTHON_BUNDLE" -name "*.dylib" -type f | while read -r file; do
+            echo "Signing: $file"
+            codesign --force --options runtime --timestamp --sign "$APPLE_SIGNING_IDENTITY" "$file"
+          done
+
+          # Also sign the python executable
+          if [ -f "$PYTHON_BUNDLE/bin/python3.11" ]; then
+            echo "Signing: $PYTHON_BUNDLE/bin/python3.11"
+            codesign --force --options runtime --timestamp --sign "$APPLE_SIGNING_IDENTITY" "$PYTHON_BUNDLE/bin/python3.11"
+          fi
+
+          echo "Done signing Python bundle binaries"
+
       # Build Tauri app
       - name: Build Tauri app (macOS with signing)
         if: matrix.platform == 'darwin'
