@@ -5,6 +5,7 @@ import {
   Wrench,
   RefreshCw,
   Square,
+  Play,
   FolderOpen,
   Trash2,
   Loader2,
@@ -68,6 +69,21 @@ export function MaintenancePage({ onRefresh }: MaintenancePageProps) {
     }
   };
 
+  const handleStart = async () => {
+    setIsStopping(true); // reuse the same loading state
+    setMessage(null);
+    try {
+      await restartService(); // restart also starts a stopped service
+      setMessage({ type: "success", text: "服務已啟動" });
+      onRefresh();
+    } catch (error) {
+      setMessage({ type: "error", text: `啟動失敗: ${error}` });
+    } finally {
+      setIsStopping(false);
+      loadData();
+    }
+  };
+
   const handleOpenDataDir = async () => {
     if (dataDir) {
       // Use Tauri shell plugin to open folder
@@ -119,22 +135,24 @@ export function MaintenancePage({ onRefresh }: MaintenancePageProps) {
 
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-medium">停止服務</p>
+              <p className="font-medium">{isRunning ? "停止服務" : "啟動服務"}</p>
               <p className="text-sm text-muted-foreground">
                 {isRunning ? "服務目前運行中" : "服務目前已停止"}
               </p>
             </div>
             <Button
-              variant="outline"
-              onClick={handleStop}
-              disabled={isRestarting || isStopping || !isRunning}
+              variant={isRunning ? "outline" : "default"}
+              onClick={isRunning ? handleStop : handleStart}
+              disabled={isRestarting || isStopping}
             >
               {isStopping ? (
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              ) : (
+              ) : isRunning ? (
                 <Square className="w-4 h-4 mr-2" />
+              ) : (
+                <Play className="w-4 h-4 mr-2" />
               )}
-              停止
+              {isRunning ? "停止" : "啟動"}
             </Button>
           </div>
         </CardContent>

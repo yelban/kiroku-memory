@@ -29,7 +29,7 @@ export function Sidebar({ currentPath, onNavigate, serviceStatus }: SidebarProps
       )}
     >
       {/* Traffic lights 區域 (78px from left) + titlebar drag */}
-      <div className="titlebar-drag h-12 pl-[78px] flex items-end pb-2">
+      <div className="titlebar-drag h-14 pl-[78px] flex items-end pb-2">
         <div className="titlebar-no-drag">
           <h1 className="text-base font-semibold">Kiroku</h1>
           <p className="text-xs text-muted-foreground -mt-0.5">Memory</p>
