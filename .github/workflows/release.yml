@@ -119,8 +119,8 @@ jobs:
         run: npm run build:ci
 
       # Disable beforeBuildCommand for CI (already built above)
-      - name: Disable beforeBuildCommand (Unix)
-        if: matrix.platform != 'windows'
+      - name: Disable beforeBuildCommand (macOS)
+        if: matrix.platform == 'darwin'
         working-directory: desktop
         run: |
           sed -i '' 's/"beforeBuildCommand": "npm run build:ci"/"beforeBuildCommand": ""/' src-tauri/tauri.conf.json
