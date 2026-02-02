@@ -47,7 +47,12 @@
       "minimumSystemVersion": "10.15",
       "entitlements": null,
       "exceptionDomain": null,
-      "signingIdentity": null
+      "signingIdentity": null,
+      "infoPlist": {
+        "NSAppSleepDisabled": true,
+        "NSSupportsAutomaticTermination": false,
+        "NSSupportsSuddenTermination": false
+      }
     },
     "windows": {
       "wix": null,
