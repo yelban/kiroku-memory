@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.13] - 2026-02-02
+
+### Added
+
+- **macOS Code Signing**: App is now signed with Apple Developer ID certificate
+  - Eliminates "app is damaged" and Gatekeeper warnings
+  - Users no longer need to run `xattr -cr` or right-click to open
+- **macOS Notarization**: App is notarized by Apple for enhanced security
+  - Smooth installation experience on macOS 10.14.5+
+
 ## [0.1.12] - 2026-02-02
 
 ### Fixed
