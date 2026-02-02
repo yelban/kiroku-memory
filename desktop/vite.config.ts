@@ -13,6 +13,7 @@ export default defineConfig({
     alias: {
       "@": resolve(__dirname, "./src"),
     },
+    extensions: [".mjs", ".js", ".mts", ".ts", ".jsx", ".tsx", ".json"],
   },
   // Tauri expects a fixed port in dev mode
   server: {
