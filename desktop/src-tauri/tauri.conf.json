@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Kiroku Memory",
-  "version": "0.1.0",
+  "version": "0.1.12",
   "identifier": "com.kiroku.memory",
   "build": {
     "frontendDist": "../dist",
@@ -48,11 +48,7 @@
       "entitlements": null,
       "exceptionDomain": null,
       "signingIdentity": null,
-      "infoPlist": {
-        "NSAppSleepDisabled": true,
-        "NSSupportsAutomaticTermination": false,
-        "NSSupportsSuddenTermination": false
-      }
+      "infoPlist": "Info.plist"
     },
     "windows": {
       "wix": null,

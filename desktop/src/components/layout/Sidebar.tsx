@@ -37,7 +37,7 @@ export function Sidebar({ currentPath, onNavigate, serviceStatus }: SidebarProps
       </div>
 
       {/* Nav Items */}
-      <div className="flex-1 px-2 py-4 space-y-1">
+      <div className="flex-1 px-2 pt-0 pb-4 space-y-1">
         {navItems.map((item) => (
           <NavItem
             key={item.href}

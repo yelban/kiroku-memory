@@ -1649,9 +1649,10 @@ dependencies = [
 
 [[package]]
 name = "kiroku-memory-desktop"
-version = "0.1.0"
+version = "0.1.12"
 dependencies = [
  "anyhow",
+ "once_cell",
  "reqwest",
  "security-framework",
  "serde",
