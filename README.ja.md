@@ -10,7 +10,7 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-green.svg)](https://fastapi.tiangolo.com/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16+-blue.svg)](https://www.postgresql.org/)
 [![SurrealDB](https://img.shields.io/badge/SurrealDB-2.x-purple.svg)](https://surrealdb.com/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: PolyForm Noncommercial](https://img.shields.io/badge/License-PolyForm%20Noncommercial-blue.svg)](https://polyformproject.org/licenses/noncommercial/1.0.0/)
 
 **言語**: [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md)
 
@@ -625,7 +625,11 @@ def time_decay_score(created_at, half_life_days=30):
 
 ## ライセンス
 
-このプロジェクトは MIT ライセンスの下でライセンスされています - 詳細は [LICENSE](LICENSE) ファイルを参照してください。
+このプロジェクトは [PolyForm Noncommercial License 1.0.0](https://polyformproject.org/licenses/noncommercial/1.0.0/) でライセンスされています。
+
+**無料利用**：個人利用、学術研究、非営利団体、評価テスト。
+
+**商用利用**：ライセンスについては yelban@gmail.com までお問い合わせください。
 
 ## 謝辞
 

@@ -10,7 +10,7 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-green.svg)](https://fastapi.tiangolo.com/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16+-blue.svg)](https://www.postgresql.org/)
 [![SurrealDB](https://img.shields.io/badge/SurrealDB-2.x-purple.svg)](https://surrealdb.com/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: PolyForm Noncommercial](https://img.shields.io/badge/License-PolyForm%20Noncommercial-blue.svg)](https://polyformproject.org/licenses/noncommercial/1.0.0/)
 
 **Language**: [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md)
 
@@ -620,7 +620,11 @@ Contributions are welcome! Please read our contributing guidelines before submit
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the [PolyForm Noncommercial License 1.0.0](https://polyformproject.org/licenses/noncommercial/1.0.0/).
+
+**Free for**: Personal use, academic research, non-profit organizations, evaluation.
+
+**Commercial use**: Please contact yelban@gmail.com for licensing.
 
 ## Acknowledgments
 

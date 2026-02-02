@@ -62,6 +62,7 @@ codex-plan*.md
 SESSION_STATE.md
 docs/development-journey.md
 docs/x-tweet-extraction-workflow.md
+docs/progressive-disclosure-analysis.md
 
 # OS
 .DS_Store

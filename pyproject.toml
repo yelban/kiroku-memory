@@ -3,6 +3,7 @@ name = "kiroku-memory"
 version = "0.1.0"
 description = "Kiroku Memory - Tiered Retrieval Memory System for AI Agents"
 readme = "README.md"
+license = {file = "LICENSE"}
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.115.0",

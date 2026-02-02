@@ -205,7 +205,7 @@ Both can connect to the same API at `http://127.0.0.1:8000`.
 
 ## License
 
-MIT License - See [LICENSE](../LICENSE) for details.
+[PolyForm Noncommercial License 1.0.0](https://polyformproject.org/licenses/noncommercial/1.0.0/) - See [LICENSE](../LICENSE) for details. Commercial use requires separate licensing.
 
 ## Related
 

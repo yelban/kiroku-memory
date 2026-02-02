@@ -205,7 +205,7 @@ Kiroku Memory デスクトップ版は [Claude Code Skill](../skill/SKILL.ja.md)
 
 ## ライセンス
 
-MIT ライセンス - 詳細は [LICENSE](../LICENSE) をご覧ください。
+[PolyForm Noncommercial License 1.0.0](https://polyformproject.org/licenses/noncommercial/1.0.0/) - 詳細は [LICENSE](../LICENSE) をご覧ください。商用利用には別途ライセンスが必要です。
 
 ## 関連リンク
 

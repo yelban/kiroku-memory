@@ -205,7 +205,7 @@ Kiroku Memory 桌面版可與 [Claude Code Skill](../skill/SKILL.zh-TW.md) 協�
 
 ## 授權
 
-MIT 授權 - 詳見 [LICENSE](../LICENSE)。
+[PolyForm Noncommercial License 1.0.0](https://polyformproject.org/licenses/noncommercial/1.0.0/) - 詳見 [LICENSE](../LICENSE)。商業使用需另行授權。
 
 ## 相關連結
 
