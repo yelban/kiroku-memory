@@ -22,11 +22,11 @@
 
 ```
 1️⃣  ダウンロード → GitHub Releases から Kiroku Memory.app をダウンロード
-2️⃣  インストール → install.sh を実行して Claude Code Skill を追加
+2️⃣  インストール → npx skills add yelban/kiroku-memory
 3️⃣  再起動       → Claude Code を再起動して、永続メモリを体験！
 ```
 
-**[⬇️ デスクトップアプリをダウンロード](https://github.com/yelban/kiroku-memory/releases)** | **[📖 Skill インストールスクリプト](skill/assets/install.sh)**
+**[⬇️ デスクトップアプリをダウンロード](https://github.com/yelban/kiroku-memory/releases)**
 
 ---
 
@@ -351,7 +351,13 @@ launchctl list | grep kiroku
 
 ### Claude Code との統合（推奨）
 
-#### オプション 1：Plugin Marketplace（最も簡単）
+#### オプション 1：npx Skills CLI（最も簡単）
+
+```bash
+npx skills add yelban/kiroku-memory
+```
+
+#### オプション 2：Plugin Marketplace
 
 ```bash
 # ステップ 1：マーケットプレイスを追加
@@ -359,19 +365,6 @@ launchctl list | grep kiroku
 
 # ステップ 2：プラグインをインストール
 /plugin install kiroku-memory
-```
-
-#### オプション 2：npx Skills CLI
-
-```bash
-# Vercel Skills CLI
-npx skills add yelban/kiroku-memory
-
-# または add-skill CLI
-npx add-skill yelban/kiroku-memory
-
-# または OpenSkills
-npx openskills install yelban/kiroku-memory
 ```
 
 #### オプション 3：手動インストール

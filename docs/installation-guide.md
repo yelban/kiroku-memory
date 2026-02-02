@@ -54,7 +54,7 @@ xattr -cr /Applications/Kiroku\ Memory.app
 ### Step 3: Install Claude Code Skill
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/yelban/kiroku-memory/main/skill/assets/install.sh | bash
+npx skills add yelban/kiroku-memory
 ```
 
 ### Step 4: Restart Claude Code
