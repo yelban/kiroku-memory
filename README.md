@@ -14,6 +14,22 @@
 
 **Language**: [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md)
 
+---
+
+## 🚀 Get Started in 3 Steps
+
+> **No Docker. No Python. No configuration.** Just download and go!
+
+```
+1️⃣  Download → Kiroku Memory.app from GitHub Releases
+2️⃣  Install  → Run install.sh to add the Claude Code Skill
+3️⃣  Restart  → Restart Claude Code and enjoy persistent memory!
+```
+
+**[⬇️ Download Desktop App](https://github.com/yelban/kiroku-memory/releases)** | **[📖 Skill Install Script](skill/assets/install.sh)**
+
+---
+
 A production-ready memory system for AI agents that implements persistent, evolving memory with tiered retrieval. Built on the principles from Rohit's "How to Build an Agent That Never Forgets" and community feedback.
 
 ## Why This Project?

@@ -6,14 +6,91 @@
 
 ---
 
-## 前提条件
+## インストール方法を選択
+
+| 方法 | 対象者 | セットアップ時間 | 必要なもの |
+|------|--------|-----------------|-----------|
+| **[オプション A：デスクトップアプリ](#オプション-aデスクトップアプリ推奨)** | 全員 | 約2分 | なし |
+| **[オプション B：開発者セットアップ](#オプション-b開発者セットアップ)** | カスタマイズ | 約15分 | Docker、Python |
+
+---
+
+## オプション A：デスクトップアプリ（推奨）
+
+> **Docker 不要、Python 不要、設定不要。** 最も簡単に始める方法！
+
+### ステップ 1：アプリをダウンロード
+
+[GitHub Releases](https://github.com/yelban/kiroku-memory/releases) からダウンロード：
+
+| プラットフォーム | アーキテクチャ | フォーマット |
+|-----------------|---------------|-------------|
+| macOS | Apple Silicon (M1/M2/M3) | `.dmg` |
+| macOS | Intel | `.dmg` |
+| Windows | x86_64 | `.msi` |
+| Linux | x86_64 | `.AppImage` |
+
+### ステップ 2：インストールして起動
+
+1. **macOS**：`.dmg` を開き、アプリケーションフォルダにドラッグ
+2. **Windows**：`.msi` インストーラーを実行
+3. **Linux**：`.AppImage` を実行可能にして実行
+
+#### macOS：初回起動（未署名アプリ）
+
+このアプリは Apple Developer 証明書で署名されていません。初回起動時、macOS がブロックします。
+
+**「壊れているため開けません」と表示された場合：**
+
+```bash
+xattr -cr /Applications/Kiroku\ Memory.app
+```
+
+**「開発元を検証できないため開けません」と表示された場合：**
+
+1. **Kiroku Memory.app** を右クリック → 「**開く**」を選択 → 「**開く**」をクリック
+2. または：「**システム設定**」→「**プライバシーとセキュリティ**」→「**このまま開く**」
+
+### ステップ 3：Claude Code Skill をインストール
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/yelban/kiroku-memory/main/skill/assets/install.sh | bash
+```
+
+### ステップ 4：Claude Code を再起動
+
+1. Claude Code を完全に終了
+2. Claude Code を再度開く
+
+**成功の確認**：会話開始時に以下が表示される：
+```
+SessionStart:startup hook success: <kiroku-memory>
+## User Memory Context
+...
+</kiroku-memory>
+```
+
+### 完了！🎉
+
+以下のコマンドが使用可能になりました：
+- `/remember <テキスト>` - メモリを保存
+- `/recall <クエリ>` - メモリを検索
+- `/memory-status` - システムステータスを確認
+
+---
+
+## オプション B：開発者セットアップ
+
+ソースから実行またはシステムをカスタマイズしたい開発者向け。
+
+### 前提条件
 
 - **macOS**（現在サポート対象）
 - **OpenAI API キー**（[こちらで取得](https://platform.openai.com/api-keys)）
 
 ---
 
-## ステップ 1：Docker Desktop のインストール
+### ステップ 1：Docker Desktop のインストール
 
 Docker は Kiroku Memory が必要とする PostgreSQL データベースを実行します。
 

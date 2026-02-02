@@ -14,6 +14,22 @@
 
 **言語**: [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md)
 
+---
+
+## 🚀 3ステップで始める
+
+> **Docker 不要、Python 不要、設定不要。** ダウンロードするだけ！
+
+```
+1️⃣  ダウンロード → GitHub Releases から Kiroku Memory.app をダウンロード
+2️⃣  インストール → install.sh を実行して Claude Code Skill を追加
+3️⃣  再起動       → Claude Code を再起動して、永続メモリを体験！
+```
+
+**[⬇️ デスクトップアプリをダウンロード](https://github.com/yelban/kiroku-memory/releases)** | **[📖 Skill インストールスクリプト](skill/assets/install.sh)**
+
+---
+
 AI エージェント向けの本番環境対応メモリシステムです。永続的で進化するメモリと階層的な検索を実装しています。Rohit の「How to Build an Agent That Never Forgets」とコミュニティのフィードバックに基づいて構築されています。
 
 ## なぜこのプロジェクト？

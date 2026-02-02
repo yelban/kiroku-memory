@@ -6,14 +6,91 @@
 
 ---
 
-## Prerequisites
+## Choose Your Installation Method
+
+| Method | Best For | Setup Time | Requirements |
+|--------|----------|------------|--------------|
+| **[Option A: Desktop App](#option-a-desktop-app-recommended)** | Everyone | ~2 min | None |
+| **[Option B: Developer Setup](#option-b-developer-setup)** | Customization | ~15 min | Docker, Python |
+
+---
+
+## Option A: Desktop App (Recommended)
+
+> **No Docker. No Python. No configuration.** The easiest way to get started!
+
+### Step 1: Download the App
+
+Download from [GitHub Releases](https://github.com/yelban/kiroku-memory/releases):
+
+| Platform | Architecture | Format |
+|----------|-------------|--------|
+| macOS | Apple Silicon (M1/M2/M3) | `.dmg` |
+| macOS | Intel | `.dmg` |
+| Windows | x86_64 | `.msi` |
+| Linux | x86_64 | `.AppImage` |
+
+### Step 2: Install and Launch
+
+1. **macOS**: Open the `.dmg` and drag to Applications
+2. **Windows**: Run the `.msi` installer
+3. **Linux**: Make the `.AppImage` executable and run
+
+#### macOS: First Launch (Unsigned App)
+
+The app is not signed with an Apple Developer certificate. On first launch, macOS will block it.
+
+**If you see "damaged and can't be opened":**
+
+```bash
+xattr -cr /Applications/Kiroku\ Memory.app
+```
+
+**If you see "can't be opened because Apple cannot check it":**
+
+1. Right-click **Kiroku Memory.app** → Select **Open** → Click **Open**
+2. Or: **System Settings** → **Privacy & Security** → **Open Anyway**
+
+### Step 3: Install Claude Code Skill
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/yelban/kiroku-memory/main/skill/assets/install.sh | bash
+```
+
+### Step 4: Restart Claude Code
+
+1. Close Claude Code completely
+2. Reopen Claude Code
+
+**Success indicator**: You'll see at conversation start:
+```
+SessionStart:startup hook success: <kiroku-memory>
+## User Memory Context
+...
+</kiroku-memory>
+```
+
+### Done! 🎉
+
+You can now use:
+- `/remember <text>` - Store a memory
+- `/recall <query>` - Search memories
+- `/memory-status` - Check system status
+
+---
+
+## Option B: Developer Setup
+
+For developers who want to run from source or customize the system.
+
+### Prerequisites
 
 - **macOS** (currently supported)
 - **OpenAI API Key** ([Get one here](https://platform.openai.com/api-keys))
 
 ---
 
-## Step 1: Install Docker Desktop
+### Step 1: Install Docker Desktop
 
 Docker runs the PostgreSQL database that Kiroku Memory needs.
 

@@ -14,6 +14,22 @@
 
 **語言**: [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md)
 
+---
+
+## 🚀 三步驟快速開始
+
+> **不需要 Docker、不需要 Python、不需要設定。** 下載即用！
+
+```
+1️⃣  下載 → 從 GitHub Releases 下載 Kiroku Memory.app
+2️⃣  安裝 → 執行 install.sh 安裝 Claude Code Skill
+3️⃣  重啟 → 重啟 Claude Code，開始享受持久記憶！
+```
+
+**[⬇️ 下載桌面應用程式](https://github.com/yelban/kiroku-memory/releases)** | **[📖 Skill 安裝腳本](skill/assets/install.sh)**
+
+---
+
 一個可用於生產環境的 AI Agent 記憶系統，實現持久化、可演進的記憶與分層檢索功能。基於 Rohit 的「How to Build an Agent That Never Forgets」文章及社群回饋所設計。
 
 ## 為什麼需要這個專案？
