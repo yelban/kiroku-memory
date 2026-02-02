@@ -3,9 +3,6 @@
 
 use serde::{Deserialize, Serialize};
 
-/// Service name for Keychain storage
-const KEYCHAIN_SERVICE: &str = "com.kiroku.memory";
-
 /// Configuration keys
 pub mod keys {
     pub const OPENAI_API_KEY: &str = "openai_api_key";
@@ -30,8 +27,10 @@ impl AppSettings {
 /// Keychain operations for macOS
 #[cfg(target_os = "macos")]
 pub mod keychain {
-    use super::*;
     use security_framework::passwords::{delete_generic_password, get_generic_password, set_generic_password};
+
+    /// Service name for Keychain storage
+    const KEYCHAIN_SERVICE: &str = "com.kiroku.memory";
 
     /// Store a secret in macOS Keychain
     pub fn set_secret(key: &str, value: &str) -> anyhow::Result<()> {

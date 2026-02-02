@@ -66,12 +66,6 @@ impl PythonService {
         }
     }
 
-    /// Get the PID of the running service
-    pub async fn get_pid(&self) -> Option<u32> {
-        let guard = self.child.lock().await;
-        guard.as_ref().map(|c| c.id())
-    }
-
     /// Stop the service
     pub async fn stop(&self) -> anyhow::Result<()> {
         self.should_restart.store(false, Ordering::SeqCst);
