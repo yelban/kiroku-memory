@@ -113,6 +113,31 @@ jobs:
           # Create 'current' directory copy for Tauri resources (Windows doesn't support symlinks well)
           cp -r tools/packaging/dist/windows-${{ matrix.arch }} tools/packaging/dist/current
 
+      # Build frontend first (workaround for vite 7.x path resolution in CI)
+      - name: Build frontend
+        working-directory: desktop
+        run: npm run build:ci
+
+      # Disable beforeBuildCommand for CI (already built above)
+      - name: Disable beforeBuildCommand (Unix)
+        if: matrix.platform != 'windows'
+        working-directory: desktop
+        run: |
+          sed -i '' 's/"beforeBuildCommand": "npm run build:ci"/"beforeBuildCommand": ""/' src-tauri/tauri.conf.json
+
+      - name: Disable beforeBuildCommand (Linux)
+        if: matrix.platform == 'linux'
+        working-directory: desktop
+        run: |
+          sed -i 's/"beforeBuildCommand": "npm run build:ci"/"beforeBuildCommand": ""/' src-tauri/tauri.conf.json
+
+      - name: Disable beforeBuildCommand (Windows)
+        if: matrix.platform == 'windows'
+        working-directory: desktop
+        shell: pwsh
+        run: |
+          (Get-Content src-tauri/tauri.conf.json) -replace '"beforeBuildCommand": "npm run build:ci"', '"beforeBuildCommand": ""' | Set-Content src-tauri/tauri.conf.json
+
       # Build Tauri app
       - name: Build Tauri app (Unix)
         if: matrix.platform != 'windows'
