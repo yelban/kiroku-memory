@@ -131,22 +131,23 @@ Download the latest release for your platform from [GitHub Releases](https://git
 
 #### macOS: First Launch (Unsigned App)
 
-The app is not signed with an Apple Developer certificate. On first launch, macOS Gatekeeper will block it:
+The app is not signed with an Apple Developer certificate. On first launch, macOS will block it.
 
-> "Kiroku Memory" can't be opened because Apple cannot check it for malicious software.
+**If you see "damaged and can't be opened":**
 
-**To allow the app:**
+Run this command in Terminal to remove the quarantine attribute:
 
-**Method 1: Right-click to open**
+```bash
+xattr -cr /Applications/Kiroku\ Memory.app
+```
+
+**If you see "can't be opened because Apple cannot check it":**
+
 1. Right-click (or Control-click) on **Kiroku Memory.app**
 2. Select **Open** from the context menu
 3. Click **Open** in the dialog
 
-**Method 2: System Settings**
-1. Open **System Settings** → **Privacy & Security**
-2. Scroll down to find the blocked app message
-3. Click **Open Anyway**
-4. Enter your password if prompted
+Or go to **System Settings** → **Privacy & Security** → Click **Open Anyway**
 
 After allowing once, the app will open normally in the future.
 
