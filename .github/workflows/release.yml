@@ -267,10 +267,35 @@ jobs:
           echo "=== Downloaded artifacts ==="
           find artifacts -type f \( -name "*.dmg" -o -name "*.msi" -o -name "*.AppImage" \)
 
-      - name: Flatten artifacts
+      - name: Rename and flatten artifacts
         run: |
           mkdir -p release-files
-          find artifacts -type f \( -name "*.dmg" -o -name "*.msi" -o -name "*.AppImage" \) -exec cp {} release-files/ \;
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          VERSION="${TAG#v}"  # Remove 'v' prefix
+
+          echo "Renaming artifacts for version $VERSION..."
+
+          # macOS ARM64
+          for f in artifacts/kiroku-memory-darwin-aarch64/*.dmg; do
+            [ -f "$f" ] && cp "$f" "release-files/Kiroku.Memory_${VERSION}_macos_arm64.dmg"
+          done
+
+          # macOS x64
+          for f in artifacts/kiroku-memory-darwin-x86_64/*.dmg; do
+            [ -f "$f" ] && cp "$f" "release-files/Kiroku.Memory_${VERSION}_macos_x64.dmg"
+          done
+
+          # Windows x64
+          for f in artifacts/kiroku-memory-windows-x86_64/*.msi; do
+            [ -f "$f" ] && cp "$f" "release-files/Kiroku.Memory_${VERSION}_windows_x64.msi"
+          done
+
+          # Linux x64
+          for f in artifacts/kiroku-memory-linux-x86_64/*.AppImage; do
+            [ -f "$f" ] && cp "$f" "release-files/Kiroku.Memory_${VERSION}_linux_x64.AppImage"
+          done
+
+          echo "=== Renamed artifacts ==="
           ls -la release-files/
 
       - name: Create Release

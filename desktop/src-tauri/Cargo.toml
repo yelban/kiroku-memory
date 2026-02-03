@@ -1,6 +1,6 @@
 [package]
 name = "kiroku-memory-desktop"
-version = "0.1.13"
+version = "0.1.15"
 description = "Kiroku Memory Desktop App POC"
 authors = ["yelban <yelban@gmail.com>"]
 edition = "2021"

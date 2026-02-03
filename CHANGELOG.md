@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.15] - 2026-02-04
+
+### Changed
+
+- **Release artifact naming**: Clearer platform naming convention
+  - `Kiroku.Memory_X.X.X_macos_arm64.dmg` (Apple Silicon)
+  - `Kiroku.Memory_X.X.X_macos_x64.dmg` (Intel)
+  - `Kiroku.Memory_X.X.X_windows_x64.msi`
+  - `Kiroku.Memory_X.X.X_linux_x64.AppImage`
+
+### Fixed
+
+- Version number now correctly shows in release artifacts
+
 ## [0.1.14] - 2026-02-04
 
 ### Added
@@ -103,6 +117,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Full REST API with OpenAPI documentation
 - Structured logging, metrics, and health checks
 
+[0.1.15]: https://github.com/yelban/kiroku-memory/compare/v0.1.14...v0.1.15
 [0.1.14]: https://github.com/yelban/kiroku-memory/compare/v0.1.13...v0.1.14
 [0.1.13]: https://github.com/yelban/kiroku-memory/compare/v0.1.12...v0.1.13
 [0.1.12]: https://github.com/yelban/kiroku-memory/compare/v0.1.11...v0.1.12
