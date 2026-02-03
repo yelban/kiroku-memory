@@ -1,0 +1,109 @@
+{
+  "nav": {
+    "status": "ステータス",
+    "memories": "メモリ",
+    "settings": "設定",
+    "maintenance": "メンテナンス"
+  },
+  "status": {
+    "state": {
+      "loading": "接続中...",
+      "healthy": "サービス稼働中",
+      "error": "サービスエラー"
+    },
+    "errorPrefix": "エラー: {{error}}",
+    "labels": {
+      "state": "状態:",
+      "version": "バージョン:",
+      "totalItems": "総アイテム",
+      "active": "アクティブ",
+      "categories": "カテゴリ",
+      "backend": "バックエンド"
+    }
+  },
+  "memories": {
+    "searchPlaceholder": "メモリを検索...",
+    "search": "検索",
+    "all": "すべて",
+    "searchResultsTitle": "検索結果",
+    "itemsTitle": "メモリアイテム",
+    "searchResultsCount": "{{count}}件の結果",
+    "clearSearch": "検索をクリア",
+    "noSearchResults": "該当するメモリが見つかりません",
+    "noItems": "メモリアイテムがありません",
+    "noSubject": "(件名なし)",
+    "detailTitle": "詳細",
+    "detail": {
+      "subject": "主語",
+      "predicate": "述語",
+      "object": "目的語",
+      "category": "カテゴリ",
+      "confidence": "信頼度",
+      "status": "状態",
+      "createdAt": "作成日時",
+      "id": "ID",
+      "empty": "アイテムを選択して詳細を表示"
+    }
+  },
+  "settings": {
+    "apiKeyTitle": "OpenAI API Key",
+    "apiKeyDescription": "API KeyはmacOS Keychainに安全に保存され、平文では保存されません。",
+    "delete": "削除",
+    "save": "保存",
+    "generalTitle": "一般設定",
+    "autoStartTitle": "サービス自動起動",
+    "autoStartDescription": "アプリ起動時にPythonサービスを自動起動",
+    "startHiddenTitle": "非表示で起動",
+    "startHiddenDescription": "起動時はメニューバーのみ表示、ウィンドウは開かない",
+    "launchAtLoginTitle": "ログイン時に起動",
+    "launchAtLoginDescription": "macOSログイン後にバックグラウンドで自動起動（メニューバーモード）",
+    "messages": {
+      "loadFailed": "設定の読み込みに失敗しました",
+      "missingApiKey": "API Keyを入力してください",
+      "apiKeyStored": "API KeyがmacOS Keychainに安全に保存されました",
+      "apiKeyDeleted": "API Keyが削除されました",
+      "saveFailed": "保存に失敗しました",
+      "settingsSaved": "設定が保存されました"
+    }
+  },
+  "maintenance": {
+    "serviceControlTitle": "サービス制御",
+    "serviceControlDescription": "Pythonバックエンドサービスのライフサイクル管理",
+    "restartServiceTitle": "サービス再起動",
+    "restartServiceDescription": "Pythonサービスを停止して再起動",
+    "restart": "再起動",
+    "stopServiceTitle": "サービス停止",
+    "startServiceTitle": "サービス開始",
+    "serviceRunning": "サービスは現在稼働中です",
+    "serviceStopped": "サービスは現在停止中です",
+    "stop": "停止",
+    "start": "開始",
+    "dataDirTitle": "データディレクトリ",
+    "dataDirDescription": "アプリケーションデータの保存場所",
+    "dataDirLoading": "読み込み中...",
+    "open": "開く",
+    "dataDirIncludes": "このディレクトリには以下が含まれます:",
+    "dataDirItemDb": "SurrealDBデータベースファイル",
+    "dataDirItemSettings": "アプリケーション設定",
+    "dangerTitle": "危険な操作",
+    "dangerDescription": "これらの操作は元に戻せません。注意して使用してください",
+    "wipeAllTitle": "すべてのデータを消去",
+    "wipeAllDescription": "すべてのメモリ、ファクト、サマリーを削除",
+    "wipeAll": "消去",
+    "wipeAllNotImplemented": "この機能はまだ実装されていません",
+    "messages": {
+      "restartSuccess": "サービスが正常に再起動しました",
+      "restartFailed": "再起動に失敗しました: {{error}}",
+      "stopSuccess": "サービスが停止しました",
+      "stopFailed": "停止に失敗しました: {{error}}",
+      "startSuccess": "サービスが開始しました",
+      "startFailed": "開始に失敗しました: {{error}}"
+    }
+  },
+  "errors": {
+    "serviceStopped": "サービスが停止しました",
+    "failedToGetStatus": "ステータスの取得に失敗しました",
+    "failedToLoadData": "データの読み込みに失敗しました",
+    "searchFailed": "検索に失敗しました"
+  }
+}

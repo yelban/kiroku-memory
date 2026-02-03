@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -15,26 +16,27 @@ import {
 } from "../lib/api";
 
 export function SettingsPage() {
+  const { t } = useTranslation();
   const [apiKey, setApiKey] = useState("");
   const [hasKey, setHasKey] = useState(false);
   const [showKey, setShowKey] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [settings, setSettings] = useState<AppSettings | null>(null);
+  const [settings, setSettingsState] = useState<AppSettings | null>(null);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   const loadData = useCallback(async () => {
     try {
       const [keyExists, appSettings] = await Promise.all([hasOpenAIKey(), getSettings()]);
       setHasKey(keyExists);
-      setSettings(appSettings);
+      setSettingsState(appSettings);
     } catch (error) {
       console.error("Failed to load settings:", error);
-      setMessage({ type: "error", text: "無法載入設定" });
+      setMessage({ type: "error", text: t("settings.messages.loadFailed") });
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     loadData();
@@ -42,7 +44,7 @@ export function SettingsPage() {
 
   const handleSaveApiKey = async () => {
     if (!apiKey.trim()) {
-      setMessage({ type: "error", text: "請輸入 API Key" });
+      setMessage({ type: "error", text: t("settings.messages.missingApiKey") });
       return;
     }
 
@@ -52,9 +54,9 @@ export function SettingsPage() {
       setHasKey(true);
       setApiKey("");
       setShowKey(false);
-      setMessage({ type: "success", text: "API Key 已安全儲存至 macOS Keychain" });
+      setMessage({ type: "success", text: t("settings.messages.apiKeyStored") });
     } catch (error) {
-      setMessage({ type: "error", text: "儲存失敗" });
+      setMessage({ type: "error", text: t("settings.messages.saveFailed") });
     } finally {
       setIsSaving(false);
     }
@@ -65,25 +67,37 @@ export function SettingsPage() {
     try {
       await deleteOpenAIKey();
       setHasKey(false);
-      setMessage({ type: "success", text: "API Key 已刪除" });
+      setMessage({ type: "success", text: t("settings.messages.apiKeyDeleted") });
     } catch (error) {
-      setMessage({ type: "error", text: "刪除失敗" });
+      setMessage({ type: "error", text: t("settings.messages.saveFailed") });
     } finally {
       setIsSaving(false);
     }
   };
 
-  const handleToggleAutoStart = async (checked: boolean) => {
+  const updateSettings = async (updates: Partial<AppSettings>) => {
     if (!settings) return;
 
-    const newSettings = { ...settings, auto_start_service: checked };
+    const newSettings = { ...settings, ...updates };
     try {
       await saveSettings(newSettings);
-      setSettings(newSettings);
-      setMessage({ type: "success", text: "設定已儲存" });
+      setSettingsState(newSettings);
+      setMessage({ type: "success", text: t("settings.messages.settingsSaved") });
     } catch (error) {
-      setMessage({ type: "error", text: "儲存失敗" });
+      setMessage({ type: "error", text: t("settings.messages.saveFailed") });
     }
+  };
+
+  const handleToggleAutoStart = async (checked: boolean) => {
+    await updateSettings({ auto_start_service: checked });
+  };
+
+  const handleToggleStartHidden = async (checked: boolean) => {
+    await updateSettings({ start_hidden: checked });
+  };
+
+  const handleToggleLaunchAtLogin = async (checked: boolean) => {
+    await updateSettings({ launch_at_login: checked });
   };
 
   if (isLoading) {
@@ -115,12 +129,12 @@ export function SettingsPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Key className="w-5 h-5" />
-            OpenAI API Key
+            {t("settings.apiKeyTitle")}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            API Key 會安全儲存在 macOS Keychain 中，不會以明文形式存放。
+            {t("settings.apiKeyDescription")}
           </p>
 
           {hasKey ? (
@@ -129,7 +143,7 @@ export function SettingsPage() {
                 ••••••••••••••••••••••••
               </div>
               <Button variant="destructive" size="sm" onClick={handleDeleteApiKey} disabled={isSaving}>
-                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : "刪除"}
+                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : t("settings.delete")}
               </Button>
             </div>
           ) : (
@@ -151,7 +165,7 @@ export function SettingsPage() {
                 </button>
               </div>
               <Button onClick={handleSaveApiKey} disabled={isSaving || !apiKey.trim()}>
-                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : "儲存"}
+                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : t("settings.save")}
               </Button>
             </div>
           )}
@@ -162,19 +176,45 @@ export function SettingsPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Settings className="w-5 h-5" />
-            一般設定
+            {t("settings.generalTitle")}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label htmlFor="auto-start">自動啟動服務</Label>
-              <p className="text-sm text-muted-foreground">應用程式啟動時自動啟動 Python 服務</p>
+              <Label htmlFor="auto-start">{t("settings.autoStartTitle")}</Label>
+              <p className="text-sm text-muted-foreground">{t("settings.autoStartDescription")}</p>
             </div>
             <Switch
               id="auto-start"
               checked={settings?.auto_start_service ?? true}
               onCheckedChange={handleToggleAutoStart}
+            />
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label htmlFor="start-hidden">{t("settings.startHiddenTitle")}</Label>
+              <p className="text-sm text-muted-foreground">{t("settings.startHiddenDescription")}</p>
+            </div>
+            <Switch
+              id="start-hidden"
+              checked={settings?.start_hidden ?? false}
+              onCheckedChange={handleToggleStartHidden}
+            />
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label htmlFor="launch-at-login">{t("settings.launchAtLoginTitle")}</Label>
+              <p className="text-sm text-muted-foreground">
+                {t("settings.launchAtLoginDescription")}
+              </p>
+            </div>
+            <Switch
+              id="launch-at-login"
+              checked={settings?.launch_at_login ?? false}
+              onCheckedChange={handleToggleLaunchAtLogin}
             />
           </div>
         </CardContent>

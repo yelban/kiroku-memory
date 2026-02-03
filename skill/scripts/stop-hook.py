@@ -314,45 +314,88 @@ def extract_saveable_content(transcript_path: str) -> list:
     return list(reversed(unique))
 
 
-def ingest_memory(content: str, source: str, role: str = "user") -> bool:
-    """Send content to Kiroku Memory API."""
-    try:
-        payload = {
-            "content": content,
-            "source": source,
-            "metadata": {
-                "auto_saved": True,
-                "hook": "stop",
-                "source_role": role
+def parse_content_to_spo(content: str) -> dict:
+    """Parse content into subject-predicate-object format.
+
+    Simple heuristic parsing - more sophisticated parsing can be done by LLM hook.
+    """
+    content = content.strip()
+
+    # Common verb patterns (English)
+    en_patterns = [
+        r'^(.+?)\s+(is|are|was|were|has|have|had|likes?|prefers?|wants?|needs?|uses?|works?|lives?|chose|decided?|discovered?)\s+(.+)$',
+    ]
+
+    # Common verb patterns (Chinese)
+    zh_patterns = [
+        r'^(.+?)(是|喜歡|偏好|想要|需要|使用|住在|工作於|選擇|決定|發現|正在)(.+)$',
+    ]
+
+    # Try English patterns
+    for pattern in en_patterns:
+        match = re.match(pattern, content, re.IGNORECASE)
+        if match:
+            return {
+                "subject": match.group(1).strip(),
+                "predicate": match.group(2).strip(),
+                "object": match.group(3).strip(),
             }
+
+    # Try Chinese patterns
+    for pattern in zh_patterns:
+        match = re.match(pattern, content)
+        if match:
+            return {
+                "subject": match.group(1).strip(),
+                "predicate": match.group(2).strip(),
+                "object": match.group(3).strip(),
+            }
+
+    # Fallback: use content as object
+    return {
+        "subject": "User",
+        "predicate": "noted",
+        "object": content[:200],  # Limit length
+    }
+
+
+def detect_category(content: str) -> str:
+    """Auto-detect category from content."""
+    content_lower = content.lower()
+    if any(w in content_lower for w in ["喜歡", "偏好", "prefer", "like", "favorite"]):
+        return "preferences"
+    elif any(w in content_lower for w in ["想要", "目標", "goal", "want", "plan"]):
+        return "goals"
+    elif any(w in content_lower for w in ["發現", "discover", "found", "learned"]):
+        return "facts"
+    elif any(w in content_lower for w in ["決定", "decide", "chose", "選擇"]):
+        return "facts"
+    return "facts"
+
+
+def ingest_memory(content: str, source: str, role: str = "user") -> bool:
+    """Store memory via POST /v2/items (no OpenAI required)."""
+    try:
+        parsed = parse_content_to_spo(content)
+        category = detect_category(content)
+
+        payload = {
+            "subject": parsed["subject"],
+            "predicate": parsed["predicate"],
+            "object": parsed["object"],
+            "category": category,
+            "confidence": 0.8 if role == "assistant" else 1.0,
         }
 
         data = json.dumps(payload).encode("utf-8")
         req = urllib.request.Request(
-            f"{KIROKU_API}/ingest",
+            f"{KIROKU_API}/v2/items",
             data=data,
             headers={"Content-Type": "application/json"},
             method="POST"
         )
 
         with urllib.request.urlopen(req, timeout=5) as resp:
-            result = json.loads(resp.read().decode("utf-8"))
-            resource_id = result.get("resource_id")
-
-            # Try to extract facts (non-blocking)
-            if resource_id:
-                try:
-                    extract_payload = json.dumps({"resource_id": resource_id}).encode()
-                    extract_req = urllib.request.Request(
-                        f"{KIROKU_API}/extract",
-                        data=extract_payload,
-                        headers={"Content-Type": "application/json"},
-                        method="POST"
-                    )
-                    urllib.request.urlopen(extract_req, timeout=10)
-                except Exception:
-                    pass
-
             return True
 
     except Exception:

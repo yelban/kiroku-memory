@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.14] - 2026-02-04
+
+### Added
+
+- **Internationalization (i18n)**: Desktop app now supports multiple languages
+  - English (default fallback)
+  - Japanese (日本語)
+  - Traditional Chinese (繁體中文)
+  - Auto-detection: Chinese systems → zh-TW, Japanese → ja, others → en
+  - Date formatting localized per language
+  - Dev mode language switching via `window.__i18n__.changeLanguage()`
+
+### Changed
+
+- All UI text extracted to JSON translation files
+- Date display uses locale-aware formatting
+
 ## [0.1.13] - 2026-02-02
 
 ### Added
@@ -86,5 +103,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Full REST API with OpenAPI documentation
 - Structured logging, metrics, and health checks
 
+[0.1.14]: https://github.com/yelban/kiroku-memory/compare/v0.1.13...v0.1.14
+[0.1.13]: https://github.com/yelban/kiroku-memory/compare/v0.1.12...v0.1.13
+[0.1.12]: https://github.com/yelban/kiroku-memory/compare/v0.1.11...v0.1.12
 [0.1.11]: https://github.com/yelban/kiroku-memory/compare/v0.1.0...v0.1.11
 [0.1.0]: https://github.com/yelban/kiroku-memory/releases/tag/v0.1.0

@@ -1,17 +1,18 @@
 import { Activity, Brain, Settings, Wrench } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { cn } from "../../lib/utils";
 
 interface NavItem {
   icon: React.ElementType;
-  label: string;
+  labelKey: string;
   href: string;
 }
 
 const navItems: NavItem[] = [
-  { icon: Activity, label: "狀態", href: "/" },
-  { icon: Brain, label: "記憶", href: "/memories" },
-  { icon: Settings, label: "設定", href: "/settings" },
-  { icon: Wrench, label: "維護", href: "/maintenance" },
+  { icon: Activity, labelKey: "nav.status", href: "/" },
+  { icon: Brain, labelKey: "nav.memories", href: "/memories" },
+  { icon: Settings, labelKey: "nav.settings", href: "/settings" },
+  { icon: Wrench, labelKey: "nav.maintenance", href: "/maintenance" },
 ];
 
 interface SidebarProps {
@@ -21,6 +22,8 @@ interface SidebarProps {
 }
 
 export function Sidebar({ currentPath, onNavigate, serviceStatus }: SidebarProps) {
+  const { t } = useTranslation();
+
   return (
     <nav
       className={cn(
@@ -39,10 +42,10 @@ export function Sidebar({ currentPath, onNavigate, serviceStatus }: SidebarProps
       {/* Nav Items */}
       <div className="flex-1 px-2 pt-0 pb-4 space-y-1">
         {navItems.map((item) => (
-          <NavItem
+          <NavItemButton
             key={item.href}
             icon={item.icon}
-            label={item.label}
+            label={t(item.labelKey)}
             active={currentPath === item.href}
             onClick={() => onNavigate(item.href)}
           />
@@ -61,11 +64,7 @@ export function Sidebar({ currentPath, onNavigate, serviceStatus }: SidebarProps
             )}
           />
           <span className="text-xs text-muted-foreground">
-            {serviceStatus === "healthy"
-              ? "服務運行中"
-              : serviceStatus === "error"
-                ? "服務錯誤"
-                : "連線中..."}
+            {t(`status.state.${serviceStatus}`)}
           </span>
         </div>
       </div>
@@ -73,14 +72,14 @@ export function Sidebar({ currentPath, onNavigate, serviceStatus }: SidebarProps
   );
 }
 
-interface NavItemProps {
+interface NavItemButtonProps {
   icon: React.ElementType;
   label: string;
   active: boolean;
   onClick: () => void;
 }
 
-function NavItem({ icon: Icon, label, active, onClick }: NavItemProps) {
+function NavItemButton({ icon: Icon, label, active, onClick }: NavItemButtonProps) {
   return (
     <button
       onClick={onClick}

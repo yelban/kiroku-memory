@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -25,6 +26,7 @@ import {
 } from "../lib/api";
 
 export function MemoriesPage() {
+  const { t, i18n } = useTranslation();
   const [items, setItems] = useState<Item[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -46,11 +48,11 @@ export function MemoriesPage() {
       setItems(itemsData);
       setCategories(categoriesData);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load data");
+      setError(e instanceof Error ? e.message : t("errors.failedToLoadData"));
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     loadData();
@@ -67,7 +69,7 @@ export function MemoriesPage() {
       const results = await searchMemories(searchQuery);
       setSearchResults(results);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Search failed");
+      setError(e instanceof Error ? e.message : t("errors.searchFailed"));
     } finally {
       setIsSearching(false);
     }
@@ -91,14 +93,27 @@ export function MemoriesPage() {
       ? items.filter((item) => item.category === selectedCategory)
       : items;
 
+  // Get locale for date formatting based on i18n language
+  const getDateLocale = () => {
+    switch (i18n.language) {
+      case "zh-TW": return "zh-TW";
+      case "ja": return "ja-JP";
+      default: return "en-US";
+    }
+  };
+
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
-    return date.toLocaleDateString("zh-TW", {
+    return date.toLocaleDateString(getDateLocale(), {
       month: "short",
       day: "numeric",
       hour: "2-digit",
       minute: "2-digit",
     });
+  };
+
+  const formatFullDate = (dateStr: string) => {
+    return new Date(dateStr).toLocaleString(getDateLocale());
   };
 
   const getConfidenceColor = (confidence: number) => {
@@ -128,7 +143,7 @@ export function MemoriesPage() {
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
-                  placeholder="搜尋記憶..."
+                  placeholder={t("memories.searchPlaceholder")}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyDown={handleKeyDown}
@@ -144,7 +159,7 @@ export function MemoriesPage() {
                 )}
               </div>
               <Button onClick={handleSearch} disabled={isSearching}>
-                {isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : "搜尋"}
+                {isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : t("memories.search")}
               </Button>
               <Button variant="ghost" size="icon" onClick={loadData}>
                 <RefreshCw className="w-4 h-4" />
@@ -159,7 +174,7 @@ export function MemoriesPage() {
                   className="cursor-pointer"
                   onClick={() => setSelectedCategory(null)}
                 >
-                  全部
+                  {t("memories.all")}
                 </Badge>
                 {categories.map((cat) => (
                   <Badge
@@ -177,9 +192,9 @@ export function MemoriesPage() {
             {/* Search Results Info */}
             {searchResults && (
               <div className="mt-3 text-sm text-muted-foreground">
-                找到 {searchResults.total_items} 筆結果
+                {t("memories.searchResultsCount", { count: searchResults.total_items })}
                 <button onClick={clearSearch} className="ml-2 text-primary hover:underline">
-                  清除搜尋
+                  {t("memories.clearSearch")}
                 </button>
               </div>
             )}
@@ -196,7 +211,7 @@ export function MemoriesPage() {
           <CardHeader className="py-3">
             <CardTitle className="text-base flex items-center gap-2">
               <Brain className="w-4 h-4" />
-              {searchResults ? "搜尋結果" : "記憶項目"}
+              {searchResults ? t("memories.searchResultsTitle") : t("memories.itemsTitle")}
               <span className="text-muted-foreground font-normal">({displayItems.length})</span>
             </CardTitle>
           </CardHeader>
@@ -204,7 +219,7 @@ export function MemoriesPage() {
             {displayItems.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                 <Brain className="w-12 h-12 mb-4 opacity-20" />
-                <p>{searchResults ? "沒有找到相關記憶" : "尚無記憶項目"}</p>
+                <p>{searchResults ? t("memories.noSearchResults") : t("memories.noItems")}</p>
               </div>
             ) : (
               <div className="divide-y divide-border">
@@ -219,7 +234,7 @@ export function MemoriesPage() {
                   >
                     <div className="flex-1 min-w-0">
                       <div className="font-medium truncate">
-                        {item.subject || "(無主題)"}
+                        {item.subject || t("memories.noSubject")}
                       </div>
                       <div className="text-sm text-muted-foreground truncate mt-0.5">
                         {item.predicate} {item.object}
@@ -254,53 +269,53 @@ export function MemoriesPage() {
         <CardHeader className="py-3">
           <CardTitle className="text-base flex items-center gap-2">
             <FileText className="w-4 h-4" />
-            詳細資訊
+            {t("memories.detailTitle")}
           </CardTitle>
         </CardHeader>
         <CardContent>
           {selectedItem ? (
             <div className="space-y-4">
               <div>
-                <div className="text-xs text-muted-foreground mb-1">主詞</div>
+                <div className="text-xs text-muted-foreground mb-1">{t("memories.detail.subject")}</div>
                 <div className="font-medium">{selectedItem.subject || "-"}</div>
               </div>
               <div>
-                <div className="text-xs text-muted-foreground mb-1">述詞</div>
+                <div className="text-xs text-muted-foreground mb-1">{t("memories.detail.predicate")}</div>
                 <div>{selectedItem.predicate || "-"}</div>
               </div>
               <div>
-                <div className="text-xs text-muted-foreground mb-1">受詞</div>
+                <div className="text-xs text-muted-foreground mb-1">{t("memories.detail.object")}</div>
                 <div>{selectedItem.object || "-"}</div>
               </div>
               <div className="border-t border-border pt-4">
-                <div className="text-xs text-muted-foreground mb-1">分類</div>
+                <div className="text-xs text-muted-foreground mb-1">{t("memories.detail.category")}</div>
                 <div>{selectedItem.category ? <Badge>{selectedItem.category}</Badge> : "-"}</div>
               </div>
               <div>
-                <div className="text-xs text-muted-foreground mb-1">信心度</div>
+                <div className="text-xs text-muted-foreground mb-1">{t("memories.detail.confidence")}</div>
                 <div className={cn("font-mono", getConfidenceColor(selectedItem.confidence))}>
                   {Math.round(selectedItem.confidence * 100)}%
                 </div>
               </div>
               <div>
-                <div className="text-xs text-muted-foreground mb-1">狀態</div>
+                <div className="text-xs text-muted-foreground mb-1">{t("memories.detail.status")}</div>
                 <Badge variant={selectedItem.status === "active" ? "default" : "secondary"}>
                   {selectedItem.status}
                 </Badge>
               </div>
               <div>
-                <div className="text-xs text-muted-foreground mb-1">建立時間</div>
-                <div className="text-sm">{new Date(selectedItem.created_at).toLocaleString("zh-TW")}</div>
+                <div className="text-xs text-muted-foreground mb-1">{t("memories.detail.createdAt")}</div>
+                <div className="text-sm">{formatFullDate(selectedItem.created_at)}</div>
               </div>
               <div>
-                <div className="text-xs text-muted-foreground mb-1">ID</div>
+                <div className="text-xs text-muted-foreground mb-1">{t("memories.detail.id")}</div>
                 <div className="text-xs font-mono text-muted-foreground break-all">{selectedItem.id}</div>
               </div>
             </div>
           ) : (
             <div className="text-center text-muted-foreground py-8">
               <FileText className="w-8 h-8 mx-auto mb-2 opacity-20" />
-              <p className="text-sm">選擇一個項目查看詳細資訊</p>
+              <p className="text-sm">{t("memories.detail.empty")}</p>
             </div>
           )}
         </CardContent>

@@ -1,0 +1,109 @@
+{
+  "nav": {
+    "status": "Status",
+    "memories": "Memories",
+    "settings": "Settings",
+    "maintenance": "Maintenance"
+  },
+  "status": {
+    "state": {
+      "loading": "Connecting...",
+      "healthy": "Service Running",
+      "error": "Service Error"
+    },
+    "errorPrefix": "Error: {{error}}",
+    "labels": {
+      "state": "Status:",
+      "version": "Version:",
+      "totalItems": "Total Items",
+      "active": "Active",
+      "categories": "Categories",
+      "backend": "Backend"
+    }
+  },
+  "memories": {
+    "searchPlaceholder": "Search memories...",
+    "search": "Search",
+    "all": "All",
+    "searchResultsTitle": "Search Results",
+    "itemsTitle": "Memory Items",
+    "searchResultsCount": "Found {{count}} results",
+    "clearSearch": "Clear search",
+    "noSearchResults": "No matching memories found",
+    "noItems": "No memory items yet",
+    "noSubject": "(No subject)",
+    "detailTitle": "Details",
+    "detail": {
+      "subject": "Subject",
+      "predicate": "Predicate",
+      "object": "Object",
+      "category": "Category",
+      "confidence": "Confidence",
+      "status": "Status",
+      "createdAt": "Created At",
+      "id": "ID",
+      "empty": "Select an item to view details"
+    }
+  },
+  "settings": {
+    "apiKeyTitle": "OpenAI API Key",
+    "apiKeyDescription": "API Key is securely stored in macOS Keychain, never in plain text.",
+    "delete": "Delete",
+    "save": "Save",
+    "generalTitle": "General Settings",
+    "autoStartTitle": "Auto-start Service",
+    "autoStartDescription": "Automatically start Python service when app launches",
+    "startHiddenTitle": "Start Hidden",
+    "startHiddenDescription": "Launch in menu bar only, without opening window",
+    "launchAtLoginTitle": "Launch at Login",
+    "launchAtLoginDescription": "Auto-start in background after macOS login (menu bar mode)",
+    "messages": {
+      "loadFailed": "Failed to load settings",
+      "missingApiKey": "Please enter API Key",
+      "apiKeyStored": "API Key securely stored in macOS Keychain",
+      "apiKeyDeleted": "API Key deleted",
+      "saveFailed": "Save failed",
+      "settingsSaved": "Settings saved"
+    }
+  },
+  "maintenance": {
+    "serviceControlTitle": "Service Control",
+    "serviceControlDescription": "Manage Python backend service lifecycle",
+    "restartServiceTitle": "Restart Service",
+    "restartServiceDescription": "Stop and restart Python service",
+    "restart": "Restart",
+    "stopServiceTitle": "Stop Service",
+    "startServiceTitle": "Start Service",
+    "serviceRunning": "Service is currently running",
+    "serviceStopped": "Service is currently stopped",
+    "stop": "Stop",
+    "start": "Start",
+    "dataDirTitle": "Data Directory",
+    "dataDirDescription": "Application data storage location",
+    "dataDirLoading": "Loading...",
+    "open": "Open",
+    "dataDirIncludes": "This directory includes:",
+    "dataDirItemDb": "SurrealDB database files",
+    "dataDirItemSettings": "Application settings",
+    "dangerTitle": "Danger Zone",
+    "dangerDescription": "These operations cannot be undone, use with caution",
+    "wipeAllTitle": "Wipe All Data",
+    "wipeAllDescription": "Delete all memories, facts, and summaries",
+    "wipeAll": "Wipe",
+    "wipeAllNotImplemented": "This feature is not yet implemented",
+    "messages": {
+      "restartSuccess": "Service restarted successfully",
+      "restartFailed": "Restart failed: {{error}}",
+      "stopSuccess": "Service stopped",
+      "stopFailed": "Stop failed: {{error}}",
+      "startSuccess": "Service started",
+      "startFailed": "Start failed: {{error}}"
+    }
+  },
+  "errors": {
+    "serviceStopped": "Service stopped",
+    "failedToGetStatus": "Failed to get status",
+    "failedToLoadData": "Failed to load data",
+    "searchFailed": "Search failed"
+  }
+}

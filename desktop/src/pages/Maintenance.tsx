@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import {
@@ -19,6 +20,7 @@ interface MaintenancePageProps {
 }
 
 export function MaintenancePage({ onRefresh }: MaintenancePageProps) {
+  const { t } = useTranslation();
   const [isRestarting, setIsRestarting] = useState(false);
   const [isStopping, setIsStopping] = useState(false);
   const [dataDir, setDataDir] = useState<string | null>(null);
@@ -44,10 +46,10 @@ export function MaintenancePage({ onRefresh }: MaintenancePageProps) {
     setMessage(null);
     try {
       await restartService();
-      setMessage({ type: "success", text: "服務重啟成功" });
+      setMessage({ type: "success", text: t("maintenance.messages.restartSuccess") });
       onRefresh();
     } catch (error) {
-      setMessage({ type: "error", text: `重啟失敗: ${error}` });
+      setMessage({ type: "error", text: t("maintenance.messages.restartFailed", { error: String(error) }) });
     } finally {
       setIsRestarting(false);
       loadData();
@@ -59,10 +61,10 @@ export function MaintenancePage({ onRefresh }: MaintenancePageProps) {
     setMessage(null);
     try {
       await stopService();
-      setMessage({ type: "success", text: "服務已停止" });
+      setMessage({ type: "success", text: t("maintenance.messages.stopSuccess") });
       onRefresh();
     } catch (error) {
-      setMessage({ type: "error", text: `停止失敗: ${error}` });
+      setMessage({ type: "error", text: t("maintenance.messages.stopFailed", { error: String(error) }) });
     } finally {
       setIsStopping(false);
       loadData();
@@ -74,10 +76,10 @@ export function MaintenancePage({ onRefresh }: MaintenancePageProps) {
     setMessage(null);
     try {
       await restartService(); // restart also starts a stopped service
-      setMessage({ type: "success", text: "服務已啟動" });
+      setMessage({ type: "success", text: t("maintenance.messages.startSuccess") });
       onRefresh();
     } catch (error) {
-      setMessage({ type: "error", text: `啟動失敗: ${error}` });
+      setMessage({ type: "error", text: t("maintenance.messages.startFailed", { error: String(error) }) });
     } finally {
       setIsStopping(false);
       loadData();
@@ -111,15 +113,15 @@ export function MaintenancePage({ onRefresh }: MaintenancePageProps) {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Wrench className="w-5 h-5" />
-            服務控制
+            {t("maintenance.serviceControlTitle")}
           </CardTitle>
-          <CardDescription>管理 Python 後端服務的生命週期</CardDescription>
+          <CardDescription>{t("maintenance.serviceControlDescription")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-medium">重啟服務</p>
-              <p className="text-sm text-muted-foreground">停止並重新啟動 Python 服務</p>
+              <p className="font-medium">{t("maintenance.restartServiceTitle")}</p>
+              <p className="text-sm text-muted-foreground">{t("maintenance.restartServiceDescription")}</p>
             </div>
             <Button onClick={handleRestart} disabled={isRestarting || isStopping}>
               {isRestarting ? (
@@ -127,7 +129,7 @@ export function MaintenancePage({ onRefresh }: MaintenancePageProps) {
               ) : (
                 <RefreshCw className="w-4 h-4 mr-2" />
               )}
-              重啟
+              {t("maintenance.restart")}
             </Button>
           </div>
 
@@ -135,9 +137,11 @@ export function MaintenancePage({ onRefresh }: MaintenancePageProps) {
 
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-medium">{isRunning ? "停止服務" : "啟動服務"}</p>
+              <p className="font-medium">
+                {isRunning ? t("maintenance.stopServiceTitle") : t("maintenance.startServiceTitle")}
+              </p>
               <p className="text-sm text-muted-foreground">
-                {isRunning ? "服務目前運行中" : "服務目前已停止"}
+                {isRunning ? t("maintenance.serviceRunning") : t("maintenance.serviceStopped")}
               </p>
             </div>
             <Button
@@ -152,7 +156,7 @@ export function MaintenancePage({ onRefresh }: MaintenancePageProps) {
               ) : (
                 <Play className="w-4 h-4 mr-2" />
               )}
-              {isRunning ? "停止" : "啟動"}
+              {isRunning ? t("maintenance.stop") : t("maintenance.start")}
             </Button>
           </div>
         </CardContent>
@@ -162,28 +166,28 @@ export function MaintenancePage({ onRefresh }: MaintenancePageProps) {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FolderOpen className="w-5 h-5" />
-            資料目錄
+            {t("maintenance.dataDirTitle")}
           </CardTitle>
-          <CardDescription>應用程式資料儲存位置</CardDescription>
+          <CardDescription>{t("maintenance.dataDirDescription")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex-1 min-w-0">
               <p className="font-mono text-sm truncate text-muted-foreground">
-                {dataDir || "載入中..."}
+                {dataDir || t("maintenance.dataDirLoading")}
               </p>
             </div>
             <Button variant="outline" size="sm" onClick={handleOpenDataDir} disabled={!dataDir}>
               <FolderOpen className="w-4 h-4 mr-2" />
-              開啟
+              {t("maintenance.open")}
             </Button>
           </div>
 
           <div className="text-sm text-muted-foreground">
-            <p>此目錄包含：</p>
+            <p>{t("maintenance.dataDirIncludes")}</p>
             <ul className="list-disc list-inside mt-1 space-y-1">
-              <li>SurrealDB 資料庫檔案</li>
-              <li>應用程式設定</li>
+              <li>{t("maintenance.dataDirItemDb")}</li>
+              <li>{t("maintenance.dataDirItemSettings")}</li>
             </ul>
           </div>
         </CardContent>
@@ -193,23 +197,23 @@ export function MaintenancePage({ onRefresh }: MaintenancePageProps) {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-destructive">
             <Trash2 className="w-5 h-5" />
-            危險操作
+            {t("maintenance.dangerTitle")}
           </CardTitle>
-          <CardDescription>這些操作無法復原，請謹慎使用</CardDescription>
+          <CardDescription>{t("maintenance.dangerDescription")}</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-medium">清除所有資料</p>
-              <p className="text-sm text-muted-foreground">刪除所有記憶、事實和摘要</p>
+              <p className="font-medium">{t("maintenance.wipeAllTitle")}</p>
+              <p className="text-sm text-muted-foreground">{t("maintenance.wipeAllDescription")}</p>
             </div>
             <Button variant="destructive" disabled>
               <Trash2 className="w-4 h-4 mr-2" />
-              清除
+              {t("maintenance.wipeAll")}
             </Button>
           </div>
           <p className="text-xs text-muted-foreground mt-2">
-            此功能尚未實作，將在未來版本提供
+            {t("maintenance.wipeAllNotImplemented")}
           </p>
         </CardContent>
       </Card>

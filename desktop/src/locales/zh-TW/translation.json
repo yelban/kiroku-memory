@@ -1,0 +1,109 @@
+{
+  "nav": {
+    "status": "狀態",
+    "memories": "記憶",
+    "settings": "設定",
+    "maintenance": "維護"
+  },
+  "status": {
+    "state": {
+      "loading": "連線中...",
+      "healthy": "服務運行中",
+      "error": "服務錯誤"
+    },
+    "errorPrefix": "錯誤: {{error}}",
+    "labels": {
+      "state": "狀態:",
+      "version": "版本:",
+      "totalItems": "總項目",
+      "active": "活躍",
+      "categories": "分類",
+      "backend": "後端"
+    }
+  },
+  "memories": {
+    "searchPlaceholder": "搜尋記憶...",
+    "search": "搜尋",
+    "all": "全部",
+    "searchResultsTitle": "搜尋結果",
+    "itemsTitle": "記憶項目",
+    "searchResultsCount": "找到 {{count}} 筆結果",
+    "clearSearch": "清除搜尋",
+    "noSearchResults": "沒有找到相關記憶",
+    "noItems": "尚無記憶項目",
+    "noSubject": "(無主題)",
+    "detailTitle": "詳細資訊",
+    "detail": {
+      "subject": "主詞",
+      "predicate": "述詞",
+      "object": "受詞",
+      "category": "分類",
+      "confidence": "信心度",
+      "status": "狀態",
+      "createdAt": "建立時間",
+      "id": "ID",
+      "empty": "選擇一個項目查看詳細資訊"
+    }
+  },
+  "settings": {
+    "apiKeyTitle": "OpenAI API Key",
+    "apiKeyDescription": "API Key 會安全儲存在 macOS Keychain 中，不會以明文形式存放。",
+    "delete": "刪除",
+    "save": "儲存",
+    "generalTitle": "一般設定",
+    "autoStartTitle": "自動啟動服務",
+    "autoStartDescription": "應用程式啟動時自動啟動 Python 服務",
+    "startHiddenTitle": "啟動時隱藏",
+    "startHiddenDescription": "啟動後只在選單列顯示，不自動打開視窗",
+    "launchAtLoginTitle": "登入時啟動",
+    "launchAtLoginDescription": "macOS 登入後自動在背景啟動（選單列模式）",
+    "messages": {
+      "loadFailed": "無法載入設定",
+      "missingApiKey": "請輸入 API Key",
+      "apiKeyStored": "API Key 已安全儲存至 macOS Keychain",
+      "apiKeyDeleted": "API Key 已刪除",
+      "saveFailed": "儲存失敗",
+      "settingsSaved": "設定已儲存"
+    }
+  },
+  "maintenance": {
+    "serviceControlTitle": "服務控制",
+    "serviceControlDescription": "管理 Python 後端服務的生命週期",
+    "restartServiceTitle": "重啟服務",
+    "restartServiceDescription": "停止並重新啟動 Python 服務",
+    "restart": "重啟",
+    "stopServiceTitle": "停止服務",
+    "startServiceTitle": "啟動服務",
+    "serviceRunning": "服務目前運行中",
+    "serviceStopped": "服務目前已停止",
+    "stop": "停止",
+    "start": "啟動",
+    "dataDirTitle": "資料目錄",
+    "dataDirDescription": "應用程式資料儲存位置",
+    "dataDirLoading": "載入中...",
+    "open": "開啟",
+    "dataDirIncludes": "此目錄包含：",
+    "dataDirItemDb": "SurrealDB 資料庫檔案",
+    "dataDirItemSettings": "應用程式設定",
+    "dangerTitle": "危險操作",
+    "dangerDescription": "這些操作無法復原，請謹慎使用",
+    "wipeAllTitle": "清除所有資料",
+    "wipeAllDescription": "刪除所有記憶、事實和摘要",
+    "wipeAll": "清除",
+    "wipeAllNotImplemented": "此功能尚未實作，將在未來版本提供",
+    "messages": {
+      "restartSuccess": "服務重啟成功",
+      "restartFailed": "重啟失敗: {{error}}",
+      "stopSuccess": "服務已停止",
+      "stopFailed": "停止失敗: {{error}}",
+      "startSuccess": "服務已啟動",
+      "startFailed": "啟動失敗: {{error}}"
+    }
+  },
+  "errors": {
+    "serviceStopped": "服務已停止",
+    "failedToGetStatus": "無法取得狀態",
+    "failedToLoadData": "無法載入資料",
+    "searchFailed": "搜尋失敗"
+  }
+}

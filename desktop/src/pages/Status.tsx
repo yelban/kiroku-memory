@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { RefreshCw, Activity, Database, Layers } from "lucide-react";
@@ -31,6 +32,8 @@ export function StatusPage({
   isRefreshing,
   onRefresh,
 }: StatusPageProps) {
+  const { t } = useTranslation();
+
   return (
     <>
       {/* Status Card */}
@@ -47,11 +50,7 @@ export function StatusPage({
                 )}
               />
               <CardTitle>
-                {status === "loading"
-                  ? "連線中..."
-                  : status === "healthy"
-                    ? "服務運行中"
-                    : "服務錯誤"}
+                {t(`status.state.${status}`)}
               </CardTitle>
             </div>
             <Button
@@ -68,19 +67,21 @@ export function StatusPage({
         </CardHeader>
         <CardContent>
           {error && (
-            <p className="text-sm text-destructive mb-4">錯誤: {error}</p>
+            <p className="text-sm text-destructive mb-4">
+              {t("status.errorPrefix", { error })}
+            </p>
           )}
 
           {health && (
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div className="flex items-center gap-2">
                 <Activity className="w-4 h-4 text-muted-foreground" />
-                <span className="text-muted-foreground">狀態:</span>
+                <span className="text-muted-foreground">{t("status.labels.state")}</span>
                 <span className="font-medium">{health.status}</span>
               </div>
               <div className="flex items-center gap-2">
                 <Database className="w-4 h-4 text-muted-foreground" />
-                <span className="text-muted-foreground">版本:</span>
+                <span className="text-muted-foreground">{t("status.labels.version")}</span>
                 <span className="font-medium tabular-nums">
                   {health.version}
                 </span>
@@ -96,17 +97,17 @@ export function StatusPage({
           <StatCard
             icon={<Layers className="w-5 h-5" />}
             value={stats.items.total}
-            label="總項目"
+            label={t("status.labels.totalItems")}
           />
           <StatCard
             icon={<Activity className="w-5 h-5" />}
             value={stats.items.active}
-            label="活躍"
+            label={t("status.labels.active")}
           />
           <StatCard
             icon={<Database className="w-5 h-5" />}
             value={stats.categories}
-            label="分類"
+            label={t("status.labels.categories")}
           />
         </div>
       )}
@@ -116,7 +117,7 @@ export function StatusPage({
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">後端</span>
+              <span className="text-muted-foreground">{t("status.labels.backend")}</span>
               <span className="font-medium">{stats.backend}</span>
             </div>
           </CardContent>

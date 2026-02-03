@@ -39,7 +39,7 @@ MAX_ASSISTANT_MESSAGES = 8
 MAX_MEMORIES = 5
 MAX_TRANSCRIPT_CHARS = 12000  # Limit transcript size for Claude CLI
 
-# Claude CLI prompt template
+# Claude CLI prompt template - outputs structured SPO format for direct storage
 MEMORY_EXTRACTION_PROMPT = """You are an assistant that extracts durable memories from a conversation.
 Return JSON only. No prose. No markdown code blocks.
 
@@ -56,7 +56,10 @@ Extract up to {max_memories} memories that are:
 - stable facts about the user or project (e.g., "user works at Google")
 
 Rules:
-- Prefer concise summaries over raw quotes
+- Extract as subject-predicate-object triples
+- subject: who or what the memory is about
+- predicate: the relation/action verb
+- object: the value, target, or complement
 - Ignore greetings, questions, and ephemeral task requests
 - Focus on information that would be useful in future sessions
 - If none found, return {{"memories": []}}
@@ -65,11 +68,11 @@ Output JSON schema (respond with this exact structure):
 {{
   "memories": [
     {{
-      "content": "concise memory statement",
-      "type": "discovery|decision|learning|preference|fact",
-      "confidence": 0.8,
-      "source_role": "user|assistant",
-      "rationale": "why this is worth remembering"
+      "subject": "the subject (who/what)",
+      "predicate": "the verb/relation",
+      "object": "the value/target",
+      "category": "preferences|facts|goals|discoveries",
+      "confidence": 0.8
     }}
   ]
 }}"""
@@ -295,53 +298,33 @@ def call_claude_cli(prompt: str) -> dict | None:
         return None
 
 
-def ingest_memory(content: str, source: str, role: str, memory_type: str) -> bool:
-    """Send content to Kiroku Memory API."""
+def store_memory_item(subject: str, predicate: str, obj: str, category: str, confidence: float) -> bool:
+    """Store memory via POST /v2/items (no OpenAI required)."""
     import urllib.request
     import urllib.error
 
     try:
         payload = {
-            "content": content,
-            "source": source,
-            "metadata": {
-                "auto_saved": True,
-                "hook": "stop-llm",
-                "source_role": role,
-                "memory_type": memory_type
-            }
+            "subject": subject,
+            "predicate": predicate,
+            "object": obj,
+            "category": category or "facts",
+            "confidence": confidence,
         }
 
         data = json.dumps(payload).encode("utf-8")
         req = urllib.request.Request(
-            f"{KIROKU_API}/ingest",
+            f"{KIROKU_API}/v2/items",
             data=data,
             headers={"Content-Type": "application/json"},
             method="POST"
         )
 
         with urllib.request.urlopen(req, timeout=10) as resp:
-            result = json.loads(resp.read().decode("utf-8"))
-            resource_id = result.get("resource_id")
-
-            # Try to extract facts
-            if resource_id:
-                try:
-                    extract_payload = json.dumps({"resource_id": resource_id}).encode()
-                    extract_req = urllib.request.Request(
-                        f"{KIROKU_API}/extract",
-                        data=extract_payload,
-                        headers={"Content-Type": "application/json"},
-                        method="POST"
-                    )
-                    urllib.request.urlopen(extract_req, timeout=15)
-                except Exception:
-                    pass
-
             return True
 
     except Exception as e:
-        log(f"Ingest error: {e}")
+        log(f"Store error: {e}")
         return False
 
 
@@ -396,32 +379,35 @@ def main():
     # Load dedup cache
     recent = load_recent_saves()
 
-    # Ingest each memory
+    # Store each memory via POST /v2/items
     saved_count = 0
     for memory in memories:
-        content = memory.get("content", "").strip()
-        if not content:
+        subject = memory.get("subject", "").strip()
+        predicate = memory.get("predicate", "").strip()
+        obj = memory.get("object", "").strip()
+
+        if not subject or not predicate or not obj:
             continue
 
-        memory_type = memory.get("type", "unknown")
-        source_role = memory.get("source_role", "unknown")
-        confidence = memory.get("confidence", 0.5)
+        category = memory.get("category", "facts")
+        confidence = memory.get("confidence", 0.8)
 
         # Skip low confidence
         if confidence < 0.6:
-            log(f"Skipping low confidence ({confidence}): {content[:50]}")
+            log(f"Skipping low confidence ({confidence}): {subject} {predicate}")
             continue
 
-        # Check duplicate
-        if is_duplicate(content, args.source, recent):
-            log(f"Duplicate skipped: {content[:50]}")
+        # Check duplicate using subject+predicate+object as content
+        content_key = f"{subject} {predicate} {obj}"
+        if is_duplicate(content_key, args.source, recent):
+            log(f"Duplicate skipped: {content_key[:50]}")
             continue
 
-        # Ingest
-        if ingest_memory(content, args.source, source_role, memory_type):
-            mark_saved(content, args.source, recent)
+        # Store via /v2/items
+        if store_memory_item(subject, predicate, obj, category, confidence):
+            mark_saved(content_key, args.source, recent)
             saved_count += 1
-            log(f"Saved ({memory_type}): {content[:50]}")
+            log(f"Saved ({category}): {subject} {predicate} {obj[:30]}")
 
     log(f"LLM analysis complete: {saved_count} memories saved")
     sys.exit(0)
