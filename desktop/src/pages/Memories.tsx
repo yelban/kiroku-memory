@@ -265,14 +265,14 @@ export function MemoriesPage() {
       </div>
 
       {/* Right Panel: Detail */}
-      <Card className="w-80 shrink-0">
-        <CardHeader className="py-3">
+      <Card className="w-80 shrink-0 overflow-hidden flex flex-col">
+        <CardHeader className="py-3 shrink-0">
           <CardTitle className="text-base flex items-center gap-2">
             <FileText className="w-4 h-4" />
             {t("memories.detailTitle")}
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="overflow-auto flex-1">
           {selectedItem ? (
             <div className="space-y-4">
               <div>

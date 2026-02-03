@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Version number now correctly shows in release artifacts
+- **Desktop UI**: Memory detail panel content overflow fixed - content now scrolls within rounded card instead of overflowing
 
 ## [0.1.14] - 2026-02-04
 
