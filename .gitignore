@@ -43,6 +43,10 @@ htmlcov/
 .dmypy.json
 dmypy.json
 
+# TypeScript build artifacts
+*.tsbuildinfo
+vite.config.d.ts
+
 # IDEs
 .idea/
 .vscode/
