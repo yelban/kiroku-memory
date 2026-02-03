@@ -130,6 +130,15 @@ function App() {
       setError(null);
     }).then((unlisten) => unlisteners.push(unlisten));
 
+    // Tray actions
+    listen<void>("tray:open_settings", () => {
+      setCurrentPath("/settings");
+    }).then((unlisten) => unlisteners.push(unlisten));
+
+    listen<void>("tray:open_logs", () => {
+      setCurrentPath("/maintenance");
+    }).then((unlisten) => unlisteners.push(unlisten));
+
     // Initial refresh
     refresh();
 

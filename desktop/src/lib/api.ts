@@ -31,6 +31,8 @@ export interface StatsResponse {
 export interface AppSettings {
   auto_start_service: boolean;
   service_port: number;
+  start_hidden: boolean;
+  launch_at_login: boolean;
 }
 
 // Memory Types

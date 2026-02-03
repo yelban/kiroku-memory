@@ -9,18 +9,29 @@ pub mod keys {
 }
 
 /// Application settings (non-sensitive, stored in app data)
-#[derive(Clone, Debug, Serialize, Deserialize, Default)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(default)]
 pub struct AppSettings {
     pub auto_start_service: bool,
     pub service_port: u16,
+    pub start_hidden: bool,
+    pub launch_at_login: bool,
+}
+
+impl Default for AppSettings {
+    fn default() -> Self {
+        Self {
+            auto_start_service: true,
+            service_port: 8000,
+            start_hidden: false,
+            launch_at_login: false,
+        }
+    }
 }
 
 impl AppSettings {
     pub fn default_settings() -> Self {
-        Self {
-            auto_start_service: true,
-            service_port: 8000,
-        }
+        Self::default()
     }
 }
 

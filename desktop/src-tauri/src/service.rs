@@ -10,7 +10,7 @@ use tauri::{AppHandle, Manager};
 use tokio::sync::Mutex;
 
 /// Service status for frontend
-#[derive(Clone, serde::Serialize)]
+#[derive(Clone, serde::Serialize, PartialEq)]
 pub enum ServiceStatus {
     Starting,
     Running,
