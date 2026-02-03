@@ -298,12 +298,86 @@ jobs:
           echo "=== Renamed artifacts ==="
           ls -la release-files/
 
+      - name: Generate changelog
+        id: changelog
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+
+          # Get previous tag
+          PREV_TAG=$(git describe --tags --abbrev=0 "${TAG}^" 2>/dev/null || echo "")
+
+          echo "Current tag: $TAG"
+          echo "Previous tag: $PREV_TAG"
+
+          # Generate changelog from commits
+          if [ -n "$PREV_TAG" ]; then
+            RANGE="${PREV_TAG}..${TAG}"
+          else
+            RANGE="$TAG"
+          fi
+
+          # Categorize commits
+          FEATURES=""
+          FIXES=""
+          DOCS=""
+          OTHER=""
+
+          while IFS= read -r line; do
+            HASH=$(echo "$line" | cut -d'|' -f1)
+            MSG=$(echo "$line" | cut -d'|' -f2-)
+            SHORT_HASH="${HASH:0:7}"
+
+            # Skip release commits
+            if echo "$MSG" | grep -qiE "^release|^bump|^merge"; then
+              continue
+            fi
+
+            # Categorize by commit message
+            if echo "$MSG" | grep -qiE "^feat|^add|^new|^implement"; then
+              FEATURES="${FEATURES}- [\`${SHORT_HASH}\`](https://github.com/${{ github.repository }}/commit/${HASH}): ${MSG}\n"
+            elif echo "$MSG" | grep -qiE "^fix|^bug|^patch|^resolve"; then
+              FIXES="${FIXES}- [\`${SHORT_HASH}\`](https://github.com/${{ github.repository }}/commit/${HASH}): ${MSG}\n"
+            elif echo "$MSG" | grep -qiE "^doc|^readme|^comment"; then
+              DOCS="${DOCS}- [\`${SHORT_HASH}\`](https://github.com/${{ github.repository }}/commit/${HASH}): ${MSG}\n"
+            else
+              OTHER="${OTHER}- [\`${SHORT_HASH}\`](https://github.com/${{ github.repository }}/commit/${HASH}): ${MSG}\n"
+            fi
+          done < <(git log --pretty=format:"%H|%s" $RANGE 2>/dev/null || true)
+
+          # Build changelog
+          CHANGELOG=""
+
+          if [ -n "$FEATURES" ]; then
+            CHANGELOG="${CHANGELOG}## 🚀 Features\n\n${FEATURES}\n"
+          fi
+
+          if [ -n "$FIXES" ]; then
+            CHANGELOG="${CHANGELOG}## 🐛 Bug Fixes\n\n${FIXES}\n"
+          fi
+
+          if [ -n "$DOCS" ]; then
+            CHANGELOG="${CHANGELOG}## 📚 Documentation\n\n${DOCS}\n"
+          fi
+
+          if [ -n "$OTHER" ]; then
+            CHANGELOG="${CHANGELOG}## 🔄 Other Changes\n\n${OTHER}\n"
+          fi
+
+          # Add full changelog link
+          if [ -n "$PREV_TAG" ]; then
+            CHANGELOG="${CHANGELOG}**Full Changelog**: https://github.com/${{ github.repository }}/compare/${PREV_TAG}...${TAG}"
+          fi
+
+          # Output to file for multiline support
+          echo -e "$CHANGELOG" > changelog.md
+          cat changelog.md
+
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.event.inputs.tag || github.ref_name }}
           files: release-files/*
-          generate_release_notes: true
+          body_path: changelog.md
           draft: false
           prerelease: ${{ contains(github.event.inputs.tag || github.ref_name, '-') }}
         env:
