@@ -36,21 +36,6 @@
 2. **Windows**：執行 `.msi` 安裝程式
 3. **Linux**：將 `.AppImage` 設為可執行並執行
 
-#### macOS：首次啟動（未簽署的 App）
-
-此 App 未使用 Apple 開發者憑證簽署。首次啟動時，macOS 會阻擋。
-
-**如果出現「已損毀，無法打開」：**
-
-```bash
-xattr -cr /Applications/Kiroku\ Memory.app
-```
-
-**如果出現「無法打開，因為 Apple 無法檢查」：**
-
-1. 右鍵點擊 **Kiroku Memory.app** → 選擇「**打開**」→ 點擊「**打開**」
-2. 或：「**系統設定**」→「**隱私與安全性**」→「**強制打開**」
-
 ### 步驟 3：安裝 Claude Code Skill
 
 ```bash

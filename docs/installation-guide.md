@@ -36,21 +36,6 @@ Download from [GitHub Releases](https://github.com/yelban/kiroku-memory/releases
 2. **Windows**: Run the `.msi` installer
 3. **Linux**: Make the `.AppImage` executable and run
 
-#### macOS: First Launch (Unsigned App)
-
-The app is not signed with an Apple Developer certificate. On first launch, macOS will block it.
-
-**If you see "damaged and can't be opened":**
-
-```bash
-xattr -cr /Applications/Kiroku\ Memory.app
-```
-
-**If you see "can't be opened because Apple cannot check it":**
-
-1. Right-click **Kiroku Memory.app** → Select **Open** → Click **Open**
-2. Or: **System Settings** → **Privacy & Security** → **Open Anyway**
-
 ### Step 3: Install Claude Code Skill
 
 ```bash
