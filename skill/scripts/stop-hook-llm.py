@@ -34,10 +34,10 @@ LOG_FILE = CACHE_DIR / "llm-worker.log"
 DEDUP_HOURS = 24
 
 # Analysis limits
-MAX_USER_MESSAGES = 6
-MAX_ASSISTANT_MESSAGES = 4
+MAX_USER_MESSAGES = 10
+MAX_ASSISTANT_MESSAGES = 8
 MAX_MEMORIES = 5
-MAX_TRANSCRIPT_CHARS = 8000  # Limit transcript size for Claude CLI
+MAX_TRANSCRIPT_CHARS = 12000  # Limit transcript size for Claude CLI
 
 # Claude CLI prompt template
 MEMORY_EXTRACTION_PROMPT = """You are an assistant that extracts durable memories from a conversation.

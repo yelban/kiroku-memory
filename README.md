@@ -2,6 +2,8 @@
 
 > Tiered Retrieval Memory System for AI Agents
 
+**The only AI memory system with a native desktop app, 100% local storage, and automatic conflict resolution.**
+
 <p align="center">
   <img src="cover.png" alt="Kiroku Memory" width="600">
 </p>
@@ -27,6 +29,22 @@
 ```
 
 **[⬇️ Download Desktop App](https://github.com/yelban/kiroku-memory/releases)**
+
+---
+
+## 🎯 Why Kiroku?
+
+| | **Kiroku** | **mem0** | **claude-mem** |
+|---|:---:|:---:|:---:|
+| 🖥️ Desktop GUI | ✅ Native App | ❌ Cloud | ❌ Web |
+| 🔒 100% Local | ✅ | ❌ Cloud-first | ✅ |
+| 🔄 Conflict Resolution | ✅ | ❌ | ❌ |
+| ⏰ Time Decay | ✅ | ❌ | ❌ |
+
+**Core differentiators:**
+- **Native Desktop App** — Visual memory browser, not just CLI
+- **Fully Local** — Your data never leaves your machine
+- **Smart Memory** — Auto-detects contradictions, confidence decays over time
 
 ---
 
@@ -89,7 +107,7 @@ These experts converge on one insight: **Memory transforms AI from a tool into a
 - **Efficiency** — Eliminates cognitive overhead of re-explaining context
 - **Evolution** — Memory accumulates, making AI smarter over time
 
-## Features
+## ✨ Features
 
 - **Append-only Raw Logs**: Immutable provenance tracking
 - **Atomic Facts Extraction**: LLM-powered structured fact extraction (subject-predicate-object)
