@@ -234,6 +234,39 @@ Cause: OpenAI sometimes returns `"object": null` in extracted facts, causing Pyd
 
 Fixed in `kiroku_memory/extract.py`: `ExtractedFact.object` is now `Optional[str]`.
 
+### Desktop: 選中記憶項目後出現灰色覆蓋，文字看不清
+
+**現象**：記憶列表點擊選中項目後，滑鼠移開會出現灰色覆蓋，導致除了信心度數字外的文字都看不清楚。
+
+**錯誤的排查方向**（花了很長時間）：
+- 以為是 WebView 的 text selection（嘗試 `select-none`、`::selection` 透明）
+- 以為是 `-webkit-tap-highlight-color`
+- 以為是按鈕的 focus 狀態（嘗試 `blur()`、`focus:outline-none`）
+- 以為是 `window.getSelection()` 需要清除
+
+**真正原因**：`globals.css` 中 `--color-muted` 和 `--color-muted-foreground` 設成了**相同的顏色** `#64748b`！
+
+```css
+/* 錯誤 - 背景和文字顏色相同 */
+--color-muted: #64748b;
+--color-muted-foreground: #64748b;
+```
+
+當 `bg-muted` 被套用時，背景色是 `#64748b`，而按鈕內有 `text-muted-foreground` 的文字也是 `#64748b`，導致文字和背景色相同。
+
+**解法**：
+
+```css
+/* 正確 - 深色背景 + 淺色文字 */
+--color-muted: #1e293b;
+--color-muted-foreground: #94a3b8;
+```
+
+**教訓**：
+1. UI 問題先用 DevTools 檢查實際的 CSS computed values
+2. 設計系統中的語意顏色（如 `muted`、`muted-foreground`）是配對的，背景色和前景色必須有足夠對比度
+3. 不要被現象誤導（「灰色覆蓋」讓人聯想到 selection/highlight），要從根本的樣式值去追查
+
 ## Translations
 
 - [繁體中文](CLAUDE.zh-TW.md)

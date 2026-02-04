@@ -228,8 +228,8 @@ export function MemoriesPage() {
                     key={item.id}
                     onClick={() => setSelectedItem(item)}
                     className={cn(
-                      "w-full text-left p-4 hover:bg-muted/50 transition-colors flex items-start gap-3",
-                      selectedItem?.id === item.id && "bg-muted"
+                      "w-full text-left p-4 hover:bg-white/5 transition-colors flex items-start gap-3",
+                      selectedItem?.id === item.id && "bg-white/10 border-l-2 border-l-primary"
                     )}
                   >
                     <div className="flex-1 min-w-0">
