@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.18] - 2026-02-04
+
+### Fixed
+
+- **Desktop UI**: Selected memory item text unreadable in dark theme
+  - Root cause: `--color-muted` and `--color-muted-foreground` were set to same color (`#64748b`)
+  - Fixed: `--color-muted: #1e293b` (dark bg), `--color-muted-foreground: #94a3b8` (light text)
+  - Updated selected item styling to use `bg-white/10` + green left border
+
+## [0.1.17] - 2026-02-04
+
+### Fixed
+
+- **Desktop**: Window not showing on top at startup - added `window.show()` and `window.set_focus()` when starting in visible mode
+
 ## [0.1.16] - 2026-02-04
 
 ### Fixed
