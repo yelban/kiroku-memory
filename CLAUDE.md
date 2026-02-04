@@ -178,6 +178,20 @@ kiroku-memory/
 
 ## Development
 
+### Desktop App 版本檔案
+
+發布前須同步更新以下檔案的版本號：
+
+| 檔案 | 欄位 |
+|------|------|
+| `desktop/package.json` | `"version"` |
+| `desktop/src-tauri/Cargo.toml` | `version` |
+| `desktop/src-tauri/tauri.conf.json` | `"version"` |
+
+**注意**：Release 產出檔名由 git tag 決定，但建議保持 tag 與上述檔案版本一致。
+
+### Tech Stack
+
 - Language: Python 3.11+
 - Framework: FastAPI + SQLAlchemy 2.x
 - Database: PostgreSQL 16 + pgvector OR SurrealDB (embedded)
