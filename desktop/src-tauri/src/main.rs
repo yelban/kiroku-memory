@@ -721,7 +721,11 @@ fn main() {
                 }
             } else {
                 close_guard_setup.store(false, Ordering::SeqCst);
-                log_event(&app_handle, "start hidden=false");
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.show();
+                    let _ = window.set_focus();
+                }
+                log_event(&app_handle, "start hidden=false (focus requested)");
             }
             if let Some(window) = app.get_webview_window("main") {
                 let is_visible = window.is_visible().unwrap_or(false);
