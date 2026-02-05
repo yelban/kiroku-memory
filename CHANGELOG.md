@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.19] - 2026-02-05
+
+### Changed
+
+- **Desktop**: Minimize-to-tray animation now targets actual tray icon position
+  - Uses `TrayIcon::rect()` API to get tray icon coordinates
+  - Previously hardcoded to screen top-right corner, now animates to menu bar where icon actually is
+
 ## [0.1.18] - 2026-02-04
 
 ### Fixed

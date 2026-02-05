@@ -291,7 +291,7 @@ fn update_memory_count(tray: &TrayItems, count: Option<u64>) {
 }
 
 fn update_toggle_label(tray: &TrayItems, is_visible: bool) {
-    let label = if is_visible { "Hide Window" } else { "Show Window" };
+    let label = if is_visible { "Bring to Front" } else { "Show Window" };
     let _ = tray.toggle_window.set_text(label);
 }
 
@@ -307,34 +307,44 @@ fn toggle_main_window(app: &AppHandle, tray: &TrayItems, close_guard: &Arc<Atomi
     if let Some(window) = app.get_webview_window("main") {
         let visible = window.is_visible().unwrap_or(false);
         if visible {
-            let _ = window.hide();
-            close_guard.store(true, Ordering::SeqCst);
+            // 視窗可見但可能被遮住，帶到前景
+            let _ = window.set_focus();
         } else {
+            // 視窗隱藏，顯示並聚焦
             let _ = window.show();
             let _ = window.set_focus();
             close_guard.store(false, Ordering::SeqCst);
+            update_toggle_label(tray, true);
         }
-        update_toggle_label(tray, !visible);
     }
 }
 
-/// Animate window shrinking to menu bar area then hide
+/// Animate window shrinking to tray icon position then hide
 #[cfg(target_os = "macos")]
-async fn animate_minimize_to_tray(window: Window) {
+async fn animate_minimize_to_tray(window: Window, app: &AppHandle) {
     use tauri::PhysicalPosition;
 
     // Get current window position and size
     let Ok(current_pos) = window.outer_position() else { return };
     let Ok(current_size) = window.outer_size() else { return };
 
-    // Target position: top-right corner of screen (near menu bar)
-    // Menu bar is typically at y=0, and tray icons are on the right
-    let Ok(monitor) = window.current_monitor() else { return };
-    let Some(monitor) = monitor else { return };
-    let screen_size = monitor.size();
-
-    let target_x = screen_size.width as i32 - 100;  // Near right edge
-    let target_y = 25;  // Menu bar height
+    // Target position: tray icon's actual position
+    let (target_x, target_y) = if let Some(tray) = app.tray_by_id(TRAY_ID) {
+        if let Ok(Some(rect)) = tray.rect() {
+            let pos = rect.position.to_physical::<i32>(1.0);
+            let size = rect.size.to_physical::<u32>(1.0);
+            // Target: center of tray icon
+            (pos.x + (size.width as i32 / 2), pos.y + (size.height as i32 / 2))
+        } else {
+            // Fallback: top-right corner
+            let screen_width = window.current_monitor().ok().flatten()
+                .map(|m| m.size().width as i32 - 100)
+                .unwrap_or(1000);
+            (screen_width, 25)
+        }
+    } else {
+        (1000, 25)
+    };
 
     // Animation parameters
     let steps = 12;
@@ -367,7 +377,7 @@ async fn animate_minimize_to_tray(window: Window) {
 }
 
 #[cfg(not(target_os = "macos"))]
-async fn animate_minimize_to_tray(window: Window) {
+async fn animate_minimize_to_tray(window: Window, _app: &AppHandle) {
     let _ = window.hide();
 }
 
@@ -829,7 +839,7 @@ fn main() {
                     }
                     close_guard.store(true, Ordering::SeqCst);
                     log_event(&app_handle, "close deferred -> animate to tray");
-                    animate_minimize_to_tray(win_clone).await;
+                    animate_minimize_to_tray(win_clone, &app_handle).await;
                 });
             }
         })
