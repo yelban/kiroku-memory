@@ -178,17 +178,19 @@ kiroku-memory/
 
 ## Development
 
-### Desktop App 版本檔案
+### 版本號碼檔案（發布前必須同步更新）
 
-發布前須同步更新以下檔案的版本號：
+| 檔案 | 欄位 | 說明 |
+|------|------|------|
+| `desktop/package.json` | `"version"` | Desktop 前端 |
+| `desktop/src-tauri/Cargo.toml` | `version` | Tauri 後端 |
+| `desktop/src-tauri/tauri.conf.json` | `"version"` | Tauri 設定 |
+| `kiroku_memory/__init__.py` | `__version__` | Python 套件 |
+| `kiroku_memory/api.py` | `version` (FastAPI) | API /health 回傳 |
 
-| 檔案 | 欄位 |
-|------|------|
-| `desktop/package.json` | `"version"` |
-| `desktop/src-tauri/Cargo.toml` | `version` |
-| `desktop/src-tauri/tauri.conf.json` | `"version"` |
-
-**注意**：Release 產出檔名由 git tag 決定，但建議保持 tag 與上述檔案版本一致。
+**注意**：
+- Release 產出檔名由 git tag 決定，但建議保持 tag 與上述檔案版本一致
+- App 內「狀態」頁籤顯示的版本號碼來自 `/health` API（即 `api.py` 的 FastAPI version）
 
 ### Tech Stack
 
