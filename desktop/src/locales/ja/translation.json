@@ -15,6 +15,8 @@
     "labels": {
       "state": "状態:",
       "version": "バージョン:",
+      "appVersion": "App:",
+      "apiVersion": "API:",
       "totalItems": "総アイテム",
       "active": "アクティブ",
       "categories": "カテゴリ",

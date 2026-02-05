@@ -16,6 +16,7 @@ interface Stats {
 }
 
 interface StatusPageProps {
+  appVersion: string | null;
   health: HealthResponse | null;
   stats: Stats | null;
   error: string | null;
@@ -25,6 +26,7 @@ interface StatusPageProps {
 }
 
 export function StatusPage({
+  appVersion,
   health,
   stats,
   error,
@@ -72,18 +74,20 @@ export function StatusPage({
             </p>
           )}
 
-          {health && (
+          {(health || appVersion) && (
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div className="flex items-center gap-2">
                 <Activity className="w-4 h-4 text-muted-foreground" />
-                <span className="text-muted-foreground">{t("status.labels.state")}</span>
-                <span className="font-medium">{health.status}</span>
+                <span className="text-muted-foreground">{t("status.labels.appVersion")}</span>
+                <span className="font-medium tabular-nums">
+                  {appVersion || "-"}
+                </span>
               </div>
               <div className="flex items-center gap-2">
                 <Database className="w-4 h-4 text-muted-foreground" />
-                <span className="text-muted-foreground">{t("status.labels.version")}</span>
+                <span className="text-muted-foreground">{t("status.labels.apiVersion")}</span>
                 <span className="font-medium tabular-nums">
-                  {health.version}
+                  {health?.version || "-"}
                 </span>
               </div>
             </div>

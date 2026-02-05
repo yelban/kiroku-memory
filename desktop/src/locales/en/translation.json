@@ -15,6 +15,8 @@
     "labels": {
       "state": "Status:",
       "version": "Version:",
+      "appVersion": "App:",
+      "apiVersion": "API:",
       "totalItems": "Total Items",
       "active": "Active",
       "categories": "Categories",

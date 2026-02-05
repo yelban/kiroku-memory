@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { listen } from "@tauri-apps/api/event";
+import { getVersion } from "@tauri-apps/api/app";
 import { Layout } from "./components/layout/Layout";
 import { StatusPage } from "./pages/Status";
 import { MemoriesPage } from "./pages/Memories";
@@ -35,6 +36,7 @@ function App() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [appVersion, setAppVersion] = useState<string | null>(null);
 
   // Convert Tauri ServiceStatus to UI status
   const updateStatusFromTauri = useCallback((tauriStatus: ServiceStatus) => {
@@ -102,6 +104,11 @@ function App() {
     }
   }, [updateStatusFromTauri, fetchHealth, fetchStats]);
 
+  // Fetch app version once
+  useEffect(() => {
+    getVersion().then(setAppVersion);
+  }, []);
+
   // Setup Tauri event listeners
   useEffect(() => {
     const unlisteners: (() => void)[] = [];
@@ -156,6 +163,7 @@ function App() {
       case "/":
         return (
           <StatusPage
+            appVersion={appVersion}
             health={health}
             stats={stats}
             error={error}
@@ -173,6 +181,7 @@ function App() {
       default:
         return (
           <StatusPage
+            appVersion={appVersion}
             health={health}
             stats={stats}
             error={error}
