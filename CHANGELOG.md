@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.21] - 2026-02-06
+
+### Changed
+
+- **Classification System**: Refactored to use `item.category` as single source of truth
+  - Categories are now derived from items via `list_distinct_categories()` instead of preset `category` table
+  - `ensure_default_categories()` converted to no-op; `category` table retained as summary cache only
+  - `/categories`, `/retrieve`, `/v2/categories`, `/v2/stats` endpoints updated
+  - `gather_category_stats` (both SQLAlchemy and UoW versions), `get_category_stats`, `get_memory_stats` updated
+  - `migrate_backend.py` verification counts updated
+
 ## [0.1.20] - 2026-02-05
 
 ### Added

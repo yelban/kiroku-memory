@@ -46,12 +46,8 @@ Return only the category name, nothing else."""
 
 
 async def ensure_default_categories(uow: UnitOfWork) -> None:
-    """Create default categories if they don't exist."""
-    for name, summary in DEFAULT_CATEGORIES:
-        existing = await uow.categories.get_by_name(name)
-        if not existing:
-            category = CategoryEntity(name=name, summary=summary)
-            await uow.categories.create(category)
+    """No-op. Kept for backward compatibility. Categories are derived from items."""
+    pass
 
 
 async def classify_item(

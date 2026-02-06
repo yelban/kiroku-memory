@@ -31,6 +31,7 @@ pub struct PythonService {
     child: Mutex<Option<Child>>,
     status: Mutex<ServiceStatus>,
     should_restart: AtomicBool,
+    restart_in_progress: AtomicBool,
 }
 
 impl PythonService {
@@ -39,7 +40,20 @@ impl PythonService {
             child: Mutex::new(None),
             status: Mutex::new(ServiceStatus::Stopped),
             should_restart: AtomicBool::new(true),
+            restart_in_progress: AtomicBool::new(false),
         }
+    }
+
+    /// Try to acquire the restart lock. Returns true if acquired, false if already in progress.
+    pub fn try_start_restart(&self) -> bool {
+        self.restart_in_progress
+            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+            .is_ok()
+    }
+
+    /// Release the restart lock.
+    pub fn finish_restart(&self) {
+        self.restart_in_progress.store(false, Ordering::SeqCst);
     }
 
     /// Get current service status
@@ -239,8 +253,8 @@ fn spawn_python_process(
     .env("SURREAL_NAMESPACE", "kiroku")
     .env("SURREAL_DATABASE", "memory")
     .env("PYTHONUNBUFFERED", "1")
-    .stdout(Stdio::piped())
-    .stderr(Stdio::piped());
+    .stdout(Stdio::inherit())
+    .stderr(Stdio::inherit());
 
     // Pass OpenAI API key if available
     if let Some(key) = openai_key {

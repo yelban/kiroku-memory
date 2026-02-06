@@ -127,7 +127,7 @@ async def cmd_verify(args):
         async with get_unit_of_work() as uow:
             counts["postgres"] = {
                 "items": await uow.items.count(),
-                "categories": len(await uow.categories.list()),
+                "categories": len(await uow.items.list_distinct_categories(status="active")),
             }
     except Exception as e:
         print(f"Error getting PostgreSQL counts: {e}")
@@ -141,7 +141,7 @@ async def cmd_verify(args):
         async with get_unit_of_work() as uow:
             counts["surrealdb"] = {
                 "items": await uow.items.count(),
-                "categories": len(await uow.categories.list()),
+                "categories": len(await uow.items.list_distinct_categories(status="active")),
             }
     except Exception as e:
         print(f"Error getting SurrealDB counts: {e}")

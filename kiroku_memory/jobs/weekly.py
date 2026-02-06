@@ -178,9 +178,9 @@ async def get_memory_stats(uow: UnitOfWork) -> dict:
     # Resource count
     stats["resources"] = await uow.resources.count()
 
-    # Category count
-    categories = await uow.categories.list()
-    stats["categories"] = len(categories)
+    # Category count (derived from items)
+    cat_names = await uow.items.list_distinct_categories(status="active")
+    stats["categories"] = len(cat_names)
 
     # Average confidence
     stats["avg_confidence"] = await uow.items.get_avg_confidence(status="active")

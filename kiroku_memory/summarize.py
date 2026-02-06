@@ -229,23 +229,24 @@ async def get_tiered_context(
 
 async def get_category_stats(uow: UnitOfWork) -> dict[str, dict]:
     """
-    Get statistics for each category.
+    Get statistics for each category (derived from items).
 
     Returns:
-        Dict of category_name -> {count, latest_update}
+        Dict of category_name -> {count, summary_length, updated_at}
     """
     # Count active items per category
     counts = await uow.categories.count_items_per_category(status="active")
 
-    # Get category info
-    categories = await uow.categories.list()
+    # Get distinct categories from items (source of truth)
+    cat_names = await uow.items.list_distinct_categories(status="active")
 
     stats = {}
-    for cat in categories:
-        stats[cat.name] = {
-            "count": counts.get(cat.name, 0),
-            "summary_length": len(cat.summary) if cat.summary else 0,
-            "updated_at": cat.updated_at.isoformat() if cat.updated_at else None,
+    for name in cat_names:
+        cached = await uow.categories.get_by_name(name)
+        stats[name] = {
+            "count": counts.get(name, 0),
+            "summary_length": len(cached.summary) if cached and cached.summary else 0,
+            "updated_at": cached.updated_at.isoformat() if cached and cached.updated_at else None,
         }
 
     return stats

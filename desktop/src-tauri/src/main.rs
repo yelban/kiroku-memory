@@ -6,6 +6,50 @@
 mod config;
 mod service;
 
+#[cfg(target_os = "macos")]
+mod wake_listener {
+    use cocoa::foundation::NSString;
+    use objc::runtime::{Class, Object};
+    use objc::{msg_send, sel, sel_impl};
+
+    /// Register for NSWorkspaceDidWakeNotification.
+    /// Returns a tokio receiver that fires `()` every time the Mac wakes from sleep.
+    /// MUST be called on the main thread (before the run-loop starts).
+    pub fn register() -> tokio::sync::mpsc::UnboundedReceiver<()> {
+        let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+
+        // Leak the sender so the closure (stored in a block) lives forever.
+        let tx = Box::into_raw(Box::new(tx));
+
+        unsafe {
+            let workspace_class = Class::get("NSWorkspace").expect("NSWorkspace not found");
+            let workspace: *mut Object = msg_send![workspace_class, sharedWorkspace];
+            let center: *mut Object = msg_send![workspace, notificationCenter];
+
+            let name =
+                cocoa::foundation::NSString::alloc(std::ptr::null_mut())
+                    .init_str("NSWorkspaceDidWakeNotification");
+
+            let block = block::ConcreteBlock::new(move |_notif: *mut Object| {
+                let _ = (*tx).send(());
+            });
+            let block = block.copy();
+
+            let _: *mut Object = msg_send![center,
+                addObserverForName: name
+                object: cocoa::base::nil
+                queue: cocoa::base::nil  // deliver on posting thread
+                usingBlock: &*block
+            ];
+
+            // Leak the block so it lives for the process lifetime.
+            std::mem::forget(block);
+        }
+
+        rx
+    }
+}
+
 use config::{keychain, keys, settings, AppSettings};
 use serde::Deserialize;
 use service::{check_health_once, wait_for_health, PythonService, ServiceStatus};
@@ -69,21 +113,32 @@ async fn restart_service_and_wait(
     app: AppHandle,
     service: Arc<PythonService>,
 ) -> Result<(), String> {
-    service.restart(&app).await.map_err(|e| e.to_string())?;
+    if !service.try_start_restart() {
+        return Err("Restart already in progress".to_string());
+    }
 
-    match wait_for_health("http://127.0.0.1:8000/health", Duration::from_secs(30)).await {
-        Ok(_) => {
-            service.mark_running().await;
-            app.emit("service-ready", ()).ok();
-            Ok(())
-        }
-        Err(e) => {
-            let error = e.to_string();
-            service.mark_error(error.clone()).await;
-            app.emit("service-error", &error).ok();
-            Err(error)
+    app.emit("service-restarting", ()).ok();
+    let result = async {
+        service.restart(&app).await.map_err(|e| e.to_string())?;
+
+        match wait_for_health("http://127.0.0.1:8000/health", Duration::from_secs(30)).await {
+            Ok(_) => {
+                service.mark_running().await;
+                app.emit("service-ready", ()).ok();
+                Ok(())
+            }
+            Err(e) => {
+                let error = e.to_string();
+                service.mark_error(error.clone()).await;
+                app.emit("service-error", &error).ok();
+                Err(error)
+            }
         }
     }
+    .await;
+
+    service.finish_restart();
+    result
 }
 
 // ============================================================================
@@ -310,7 +365,12 @@ fn toggle_main_window(app: &AppHandle, tray: &TrayItems, close_guard: &Arc<Atomi
             // 視窗可見但可能被遮住，帶到前景
             let _ = window.set_focus();
         } else {
-            // 視窗隱藏，顯示並聚焦
+            // 視窗隱藏，恢復 Dock 可見性並顯示視窗
+            #[cfg(target_os = "macos")]
+            {
+                let _ = app.set_activation_policy(tauri::ActivationPolicy::Regular);
+                let _ = app.set_dock_visibility(true);
+            }
             let _ = window.show();
             let _ = window.set_focus();
             close_guard.store(false, Ordering::SeqCst);
@@ -374,6 +434,13 @@ async fn animate_minimize_to_tray(window: Window, app: &AppHandle) {
     let _ = window.hide();
     let _ = window.set_position(current_pos);
     let _ = window.set_size(current_size);
+
+    // Hide Dock icon when window is minimized to tray
+    #[cfg(target_os = "macos")]
+    {
+        let _ = app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+        let _ = app.set_dock_visibility(false);
+    }
 }
 
 #[cfg(not(target_os = "macos"))]
@@ -598,54 +665,127 @@ async fn start_and_wait(app: AppHandle, service: Arc<PythonService>) {
     }
 }
 
-/// Monitor service health and report failures
+/// Monitor service health and auto-recover on failure
 async fn monitor_service(app: AppHandle, service: Arc<PythonService>) {
-    let mut consecutive_failures = 0;
-    const MAX_FAILURES: u32 = 3;
+    let mut consecutive_failures: u32 = 0;
+    let mut restart_attempts: u32 = 0;
+    let mut last_restart_time: Option<std::time::Instant> = None;
+
+    const HEALTH_FAIL_THRESHOLD: u32 = 3;
+    const MAX_RESTART_ATTEMPTS: u32 = 3;
     const CHECK_INTERVAL: Duration = Duration::from_secs(5);
+    const RESTART_COOLDOWN: Duration = Duration::from_secs(30);
+    const SLOW_CHECK_INTERVAL: Duration = Duration::from_secs(60);
+    /// How long the service must stay healthy after restart before we reset the attempt counter.
+    const STABLE_PERIOD: Duration = Duration::from_secs(60);
 
     loop {
-        tokio::time::sleep(CHECK_INTERVAL).await;
+        let interval = if restart_attempts >= MAX_RESTART_ATTEMPTS {
+            SLOW_CHECK_INTERVAL
+        } else {
+            CHECK_INTERVAL
+        };
+        tokio::time::sleep(interval).await;
 
         // Skip monitoring if service is intentionally stopped
         if !service.should_auto_restart() {
+            consecutive_failures = 0;
+            restart_attempts = 0;
+            last_restart_time = None;
             continue;
         }
 
-        // Check if process is still running
-        if !service.is_running().await {
+        let process_alive = service.is_running().await;
+        let health_ok = if process_alive {
+            check_health_once().await.is_some()
+        } else {
+            false
+        };
+
+        // Health recovered
+        if health_ok {
+            consecutive_failures = 0;
+            // Only reset restart_attempts once the service has been stable long enough
+            if restart_attempts > 0 {
+                if let Some(t) = last_restart_time {
+                    if t.elapsed() >= STABLE_PERIOD {
+                        println!("[Monitor] Service stable for {}s, resetting restart counter", STABLE_PERIOD.as_secs());
+                        restart_attempts = 0;
+                        last_restart_time = None;
+                    }
+                } else {
+                    // No recorded restart time but attempts > 0 — reset anyway
+                    restart_attempts = 0;
+                }
+            }
+            let status = service.get_status().await;
+            if !matches!(status, ServiceStatus::Running) {
+                service.mark_running().await;
+                app.emit("service-ready", ()).ok();
+            }
+            continue;
+        }
+
+        // Determine if we should restart
+        let should_restart = if !process_alive {
             println!("[Monitor] Service process is not running");
+            true // Process dead → restart immediately
+        } else {
+            consecutive_failures += 1;
+            println!(
+                "[Monitor] Health check failed ({}/{})",
+                consecutive_failures, HEALTH_FAIL_THRESHOLD
+            );
+            consecutive_failures >= HEALTH_FAIL_THRESHOLD
+        };
+
+        if !should_restart {
+            continue;
+        }
+
+        // Check restart budget
+        if restart_attempts >= MAX_RESTART_ATTEMPTS {
+            // Already exhausted — stay in error state, slow-check continues
             let status = service.get_status().await;
             if !matches!(status, ServiceStatus::Error(_)) {
                 service
-                    .mark_error("Service stopped".to_string())
+                    .mark_error("Service unresponsive (restarts exhausted)".to_string())
                     .await;
-                app.emit("service-error", "Service stopped").ok();
+                app.emit("service-error", "Service unresponsive (restarts exhausted)")
+                    .ok();
             }
             continue;
         }
 
-        // Process is running, check health
-        match check_health_once().await {
-            Some(_) => {
-                consecutive_failures = 0;
-            }
-            None => {
-                consecutive_failures += 1;
-                println!(
-                    "[Monitor] Health check failed ({}/{})",
-                    consecutive_failures, MAX_FAILURES
-                );
+        // Attempt restart
+        restart_attempts += 1;
+        consecutive_failures = 0;
+        println!(
+            "[Monitor] Attempting restart ({}/{})",
+            restart_attempts, MAX_RESTART_ATTEMPTS
+        );
+        log_event(
+            &app,
+            &format!(
+                "monitor auto-restart attempt {}/{}",
+                restart_attempts, MAX_RESTART_ATTEMPTS
+            ),
+        );
 
-                if consecutive_failures >= MAX_FAILURES {
-                    println!("[Monitor] Too many health check failures, marking as error");
-                    let status = service.get_status().await;
-                    if !matches!(status, ServiceStatus::Error(_)) {
-                        service
-                            .mark_error("Service unresponsive".to_string())
-                            .await;
-                        app.emit("service-error", "Service unresponsive").ok();
-                    }
+        match restart_service_and_wait(app.clone(), service.clone()).await {
+            Ok(()) => {
+                println!("[Monitor] Restart succeeded");
+                log_event(&app, "monitor auto-restart succeeded");
+                consecutive_failures = 0;
+                last_restart_time = Some(std::time::Instant::now());
+                // Don't reset restart_attempts here — wait for STABLE_PERIOD
+            }
+            Err(e) => {
+                println!("[Monitor] Restart failed: {}", e);
+                log_event(&app, &format!("monitor auto-restart failed: {}", e));
+                if restart_attempts < MAX_RESTART_ATTEMPTS {
+                    println!("[Monitor] Cooling down {}s before next attempt", RESTART_COOLDOWN.as_secs());
+                    tokio::time::sleep(RESTART_COOLDOWN).await;
                 }
             }
         }
@@ -677,16 +817,9 @@ fn main() {
 
             #[cfg(target_os = "macos")]
             {
-                let force_dock = std::env::var("KIROKU_DOCK_VISIBLE").is_ok();
-                if cfg!(debug_assertions) || force_dock {
-                    let _ = app_handle.set_activation_policy(tauri::ActivationPolicy::Regular);
-                    let _ = app_handle.set_dock_visibility(true);
-                    log_event(&app_handle, "dock policy=regular visible=true");
-                } else {
-                    let _ = app_handle.set_activation_policy(tauri::ActivationPolicy::Accessory);
-                    let _ = app_handle.set_dock_visibility(false);
-                    log_event(&app_handle, "dock policy=accessory visible=false");
-                }
+                let _ = app_handle.set_activation_policy(tauri::ActivationPolicy::Regular);
+                let _ = app_handle.set_dock_visibility(true);
+                log_event(&app_handle, "dock policy=regular visible=true");
             }
 
             let mut tray_items_opt = None;
@@ -727,7 +860,12 @@ fn main() {
                 if let Some(window) = app.get_webview_window("main") {
                     let _ = window.hide();
                     close_guard_setup.store(true, Ordering::SeqCst);
-                    log_event(&app_handle, "start hidden=true (window hidden)");
+                    #[cfg(target_os = "macos")]
+                    {
+                        let _ = app_handle.set_activation_policy(tauri::ActivationPolicy::Accessory);
+                        let _ = app_handle.set_dock_visibility(false);
+                    }
+                    log_event(&app_handle, "start hidden=true (window hidden, dock hidden)");
                 }
             } else {
                 close_guard_setup.store(false, Ordering::SeqCst);
@@ -792,6 +930,52 @@ fn main() {
                 tokio::time::sleep(Duration::from_secs(5)).await;
                 monitor_service(monitor_handle, monitor_svc).await;
             });
+
+            // Spawn wake handler (macOS only)
+            #[cfg(target_os = "macos")]
+            {
+                let mut wake_rx = wake_listener::register();
+                let wake_handle = app_handle.clone();
+                let wake_svc = service_clone.clone();
+                tauri::async_runtime::spawn(async move {
+                    while wake_rx.recv().await.is_some() {
+                        println!("[Wake] System woke from sleep");
+                        log_event(&wake_handle, "wake event received");
+
+                        // Wait for network to stabilise
+                        tokio::time::sleep(Duration::from_secs(2)).await;
+
+                        // Skip if user manually stopped the service
+                        if !wake_svc.should_auto_restart() {
+                            println!("[Wake] Auto-restart disabled, skipping");
+                            log_event(&wake_handle, "wake: auto-restart disabled, skip");
+                            continue;
+                        }
+
+                        // Already healthy → nothing to do
+                        if check_health_once().await.is_some() {
+                            println!("[Wake] Service is healthy after wake, no action needed");
+                            log_event(&wake_handle, "wake: service healthy, skip");
+                            continue;
+                        }
+
+                        // Service unhealthy → restart
+                        println!("[Wake] Service unhealthy after wake, triggering restart");
+                        log_event(&wake_handle, "wake: service unhealthy, restarting");
+                        match restart_service_and_wait(wake_handle.clone(), wake_svc.clone()).await {
+                            Ok(()) => {
+                                println!("[Wake] Restart after wake succeeded");
+                                log_event(&wake_handle, "wake: restart succeeded");
+                            }
+                            Err(e) => {
+                                println!("[Wake] Restart after wake failed: {}", e);
+                                log_event(&wake_handle, &format!("wake: restart failed: {}", e));
+                            }
+                        }
+                    }
+                    println!("[Wake] Channel closed, stopping wake handler");
+                });
+            }
 
             if let Some(tray_items) = tray_items_opt {
                 let tray_handle = app_handle.clone();

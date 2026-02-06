@@ -207,7 +207,7 @@ async def gather_category_stats(
     categories = {cat.name: cat for cat in cat_result.scalars()}
 
     # Combine all stats
-    all_category_names = set(item_stats.keys()) | set(categories.keys())
+    all_category_names = set(item_stats.keys())
     stats_list = []
 
     for name in all_category_names:
@@ -294,8 +294,8 @@ async def gather_category_stats_uow(
         if items:
             last_item_at[cat_name] = items[0].created_at
 
-    # Combine all stats
-    all_category_names = set(item_counts.keys()) | set(categories.keys())
+    # Combine all stats — items are source of truth for category names
+    all_category_names = set(item_counts.keys())
     stats_list = []
 
     for name in all_category_names:

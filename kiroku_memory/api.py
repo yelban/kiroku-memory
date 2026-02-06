@@ -11,7 +11,7 @@ from .db.database import init_db, close_db
 from .db.repositories.factory import get_unit_of_work
 from .db.entities import ResourceEntity, ItemEntity, CategoryEntity
 from .extract import extract_and_store, process_pending_resources
-from .classify import ensure_default_categories, classify_item
+from .classify import classify_item
 from .conflict import auto_resolve_conflicts
 from .summarize import build_all_summaries, get_tiered_context
 from .jobs import run_nightly_consolidation, run_weekly_maintenance, run_monthly_reindex
@@ -21,7 +21,7 @@ from .observability import metrics, get_health_status, logger
 app = FastAPI(
     title="Kiroku Memory API",
     description="Tiered Retrieval Memory System for AI Agents",
-    version="0.1.19",
+    version="0.1.21",
 )
 
 # CORS middleware for Tauri desktop app
@@ -103,6 +103,7 @@ async def startup():
         await init_db()
 
 
+
 @app.on_event("shutdown")
 async def shutdown():
     from .db.config import settings
@@ -112,6 +113,28 @@ async def shutdown():
         await close_surreal_db()
     else:
         await close_db()
+
+
+# ============ Helpers ============
+
+UUID_NS = UUID("6ba7b810-9dad-11d1-80b4-00c04fd430c8")  # RFC 4122 DNS namespace
+
+
+async def _get_categories_from_items(uow) -> list[CategoryOut]:
+    """Aggregate categories from items, attach summary cache."""
+    from uuid import uuid5
+
+    cat_names = await uow.items.list_distinct_categories(status="active")
+    result = []
+    for name in sorted(cat_names):
+        cached = await uow.categories.get_by_name(name)
+        result.append(CategoryOut(
+            id=cached.id if cached else uuid5(UUID_NS, name),
+            name=name,
+            summary=cached.summary if cached else None,
+            updated_at=cached.updated_at if cached else datetime.utcnow(),
+        ))
+    return result
 
 
 # ============ Endpoints ============
@@ -184,8 +207,8 @@ async def retrieve_memory(
     then relevant items for drill-down.
     """
     async with get_unit_of_work() as uow:
-        # Get category summaries
-        all_categories = await uow.categories.list()
+        # Get categories from items (source of truth)
+        all_categories = await _get_categories_from_items(uow)
         if category:
             all_categories = [c for c in all_categories if c.name == category]
 
@@ -197,15 +220,7 @@ async def retrieve_memory(
 
         return RetrievalResponse(
             query=query,
-            categories=[
-                CategoryOut(
-                    id=c.id,
-                    name=c.name,
-                    summary=c.summary,
-                    updated_at=c.updated_at,
-                )
-                for c in all_categories
-            ],
+            categories=all_categories,
             items=[
                 ItemOut(
                     id=i.id,
@@ -225,18 +240,9 @@ async def retrieve_memory(
 
 @app.get("/categories", response_model=list[CategoryOut])
 async def list_categories():
-    """List all categories with summaries"""
+    """List all categories with summaries (derived from items)"""
     async with get_unit_of_work() as uow:
-        entities = await uow.categories.list()
-        return [
-            CategoryOut(
-                id=e.id,
-                name=e.name,
-                summary=e.summary,
-                updated_at=e.updated_at,
-            )
-            for e in entities
-        ]
+        return await _get_categories_from_items(uow)
 
 
 @app.get("/health")
@@ -278,7 +284,6 @@ async def extract_endpoint(request: ExtractRequest):
 async def process_endpoint(limit: int = 100):
     """Process pending resources (extract facts)"""
     async with get_unit_of_work() as uow:
-        await ensure_default_categories(uow)
         count = await process_pending_resources(uow, limit=limit)
         await uow.commit()
         return {"processed": count}
@@ -519,18 +524,9 @@ async def create_item_v2(request: CreateItemRequest):
 
 @app.get("/v2/categories", response_model=list[CategoryOut], tags=["v2"])
 async def list_categories_v2():
-    """List all categories with summaries (v2 - uses repository pattern)"""
+    """List all categories with summaries (v2 - derived from items)"""
     async with get_unit_of_work() as uow:
-        entities = await uow.categories.list()
-        return [
-            CategoryOut(
-                id=e.id,
-                name=e.name,
-                summary=e.summary,
-                updated_at=e.updated_at,
-            )
-            for e in entities
-        ]
+        return await _get_categories_from_items(uow)
 
 
 @app.get("/v2/stats")
@@ -542,7 +538,7 @@ async def stats_v2():
         total_items = await uow.items.count()
         active_items = await uow.items.count(status="active")
         archived_items = await uow.items.count(status="archived")
-        categories = await uow.categories.list()
+        cat_names = await uow.items.list_distinct_categories(status="active")
 
         return {
             "backend": settings.backend,
@@ -551,5 +547,5 @@ async def stats_v2():
                 "active": active_items,
                 "archived": archived_items,
             },
-            "categories": len(categories),
+            "categories": len(cat_names),
         }
