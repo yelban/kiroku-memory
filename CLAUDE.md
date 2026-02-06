@@ -192,6 +192,10 @@ kiroku-memory/
 - Release 產出檔名由 git tag 決定，但建議保持 tag 與上述檔案版本一致
 - App 內「狀態」頁籤顯示的版本號碼來自 `/health` API（即 `api.py` 的 FastAPI version）
 
+### Git 排除的開發檔案（不需提交）
+
+- `docs/development-journey.md` — 開發歷程紀錄，僅本機參考用
+
 ### Tech Stack
 
 - Language: Python 3.11+
