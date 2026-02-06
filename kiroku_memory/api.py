@@ -21,7 +21,7 @@ from .observability import metrics, get_health_status, logger
 app = FastAPI(
     title="Kiroku Memory API",
     description="Tiered Retrieval Memory System for AI Agents",
-    version="0.1.21",
+    version="0.1.22",
 )
 
 # CORS middleware for Tauri desktop app

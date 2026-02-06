@@ -102,7 +102,8 @@ impl PythonService {
 
         let (python_bin, pythonpath) = get_python_paths(app)?;
         let data_dir = get_data_dir(app)?;
-        let surreal_url = format!("file://{}/surrealdb/kiroku", data_dir.display());
+        let data_path = data_dir.to_string_lossy().replace('\\', "/");
+        let surreal_url = format!("file://{}/surrealdb/kiroku", data_path);
 
         // Get OpenAI API key from Keychain
         let openai_key = keychain::get_secret(keys::OPENAI_API_KEY).unwrap_or(None);
@@ -237,6 +238,13 @@ fn spawn_python_process(
     surreal_url: &str,
     openai_key: Option<String>,
 ) -> anyhow::Result<Child> {
+    if !python_bin.exists() {
+        anyhow::bail!(
+            "Python binary not found at: {}. Ensure the app was installed correctly.",
+            python_bin.display()
+        );
+    }
+
     let mut cmd = Command::new(python_bin);
     cmd.args([
         "-m",
