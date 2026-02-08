@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from .db.database import init_db, close_db
 from .db.repositories.factory import get_unit_of_work
-from .db.entities import ResourceEntity, ItemEntity, CategoryEntity
+from .db.entities import ResourceEntity, ItemEntity, CategoryEntity, GraphEdgeEntity
 from .extract import extract_and_store, process_pending_resources
 from .classify import classify_item
 from .conflict import auto_resolve_conflicts
@@ -201,19 +201,25 @@ async def retrieve_memory(
     limit: int = 20,
 ):
     """
-    Tiered memory retrieval (uses repository pattern for backend-agnostic access).
+    Tiered memory retrieval with intent-driven smart search.
 
+    Automatically classifies query intent and routes to the best strategy
+    (entity lookup, temporal, aspect filter, or semantic search).
     Returns category summaries first (for quick context),
     then relevant items for drill-down.
     """
+    from .search import smart_search
+
     async with get_unit_of_work() as uow:
         # Get categories from items (source of truth)
         all_categories = await _get_categories_from_items(uow)
         if category:
             all_categories = [c for c in all_categories if c.name == category]
 
-        # Get active items
-        items = await uow.items.list(category=category, status="active", limit=limit)
+        # Use smart_search for intent-driven retrieval
+        search_result = await smart_search(
+            query=query, uow=uow, category=category, limit=limit,
+        )
 
         # Count total
         total = await uow.items.count(category=category, status="active")
@@ -223,16 +229,16 @@ async def retrieve_memory(
             categories=all_categories,
             items=[
                 ItemOut(
-                    id=i.id,
-                    created_at=i.created_at,
-                    subject=i.subject,
-                    predicate=i.predicate,
-                    object=i.object,
-                    category=i.category,
-                    confidence=i.confidence,
-                    status=i.status,
+                    id=r["id"],
+                    created_at=r.get("created_at", datetime.utcnow()),
+                    subject=r.get("subject"),
+                    predicate=r.get("predicate"),
+                    object=r.get("object"),
+                    category=r.get("category"),
+                    confidence=r.get("confidence", 1.0),
+                    status=r.get("status", "active"),
                 )
-                for i in items
+                for r in search_result["items"]
             ],
             total_items=total,
         )
@@ -489,6 +495,7 @@ async def create_item_v2(request: CreateItemRequest):
 
     This endpoint allows storing pre-extracted facts without requiring OpenAI API.
     Useful for Claude Code integration where Claude does the extraction.
+    Auto-generates embedding and graph edge when possible.
     """
     from uuid import uuid4
     from datetime import datetime, timezone
@@ -508,6 +515,31 @@ async def create_item_v2(request: CreateItemRequest):
         )
 
         item_id = await uow.items.create(entity)
+
+        # Auto-generate embedding (skip if no OpenAI key)
+        try:
+            from .embedding.factory import generate_embedding, get_embedding_provider
+            provider = get_embedding_provider()
+            text = provider.build_text_for_item(
+                request.subject, request.predicate, request.object, request.category
+            )
+            vector = await generate_embedding(text)
+            await uow.embeddings.upsert(item_id, vector)
+        except Exception:
+            logger.debug("Skipping embedding generation (provider unavailable)")
+
+        # Auto-create graph edge
+        if request.subject and request.predicate and request.object:
+            try:
+                edge = GraphEdgeEntity(
+                    subject=request.subject,
+                    predicate=request.predicate,
+                    object=request.object,
+                )
+                await uow.graph.create(edge)
+            except Exception:
+                logger.debug("Skipping graph edge creation")
+
         await uow.commit()
 
         return ItemOut(
@@ -549,3 +581,122 @@ async def stats_v2():
             },
             "categories": len(cat_names),
         }
+
+
+# ============ Search & Graph ============
+
+class SearchResultOut(BaseModel):
+    """Single search result"""
+    id: UUID
+    subject: Optional[str]
+    predicate: Optional[str]
+    object: Optional[str]
+    category: Optional[str]
+    confidence: float
+    similarity: float
+
+    class Config:
+        from_attributes = True
+
+
+class SearchResponse(BaseModel):
+    """Search response"""
+    query: str
+    intent: str
+    results: list[SearchResultOut]
+    total: int
+
+
+class GraphEdgeOut(BaseModel):
+    """Graph edge output"""
+    id: UUID
+    subject: str
+    predicate: str
+    object: str
+    weight: float
+
+    class Config:
+        from_attributes = True
+
+
+class GraphNeighborsResponse(BaseModel):
+    """Graph neighbors response"""
+    entity: str
+    depth: int
+    edges: list[GraphEdgeOut]
+    total: int
+
+
+@app.get("/search", response_model=SearchResponse, tags=["search"])
+async def search_endpoint(
+    q: str,
+    category: Optional[str] = None,
+    limit: int = 10,
+    min_similarity: float = 0.5,
+):
+    """
+    Smart search with intent-driven retrieval.
+
+    Automatically classifies query intent and routes to the best strategy:
+    - Entity lookup: "about X" → graph traversal + item search
+    - Temporal: "recent", "last week" → time-filtered items
+    - Aspect filter: "preferences", "goals" → category-filtered items
+    - Semantic search: free text → embedding similarity search
+    """
+    from .search import smart_search
+
+    async with get_unit_of_work() as uow:
+        results = await smart_search(
+            query=q,
+            uow=uow,
+            category=category,
+            limit=limit,
+            min_similarity=min_similarity,
+        )
+
+        return SearchResponse(
+            query=q,
+            intent=results["intent"],
+            results=[
+                SearchResultOut(
+                    id=r["id"],
+                    subject=r.get("subject"),
+                    predicate=r.get("predicate"),
+                    object=r.get("object"),
+                    category=r.get("category"),
+                    confidence=r.get("confidence", 1.0),
+                    similarity=r.get("similarity", 1.0),
+                )
+                for r in results["items"]
+            ],
+            total=results["total"],
+        )
+
+
+@app.get("/graph/neighbors", response_model=GraphNeighborsResponse, tags=["graph"])
+async def graph_neighbors_endpoint(
+    entity: str,
+    depth: int = 1,
+):
+    """
+    Get knowledge graph neighbors for an entity.
+
+    Returns all edges within N hops of the given entity name.
+    """
+    async with get_unit_of_work() as uow:
+        edges = await uow.graph.get_neighbors(entity, depth=depth)
+        return GraphNeighborsResponse(
+            entity=entity,
+            depth=depth,
+            edges=[
+                GraphEdgeOut(
+                    id=e.id,
+                    subject=e.subject,
+                    predicate=e.predicate,
+                    object=e.object,
+                    weight=e.weight,
+                )
+                for e in edges
+            ],
+            total=len(edges),
+        )

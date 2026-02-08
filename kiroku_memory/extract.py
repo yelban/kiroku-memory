@@ -8,7 +8,7 @@ from pydantic import BaseModel
 
 from .db.config import settings
 from .db.repositories.base import UnitOfWork
-from .db.entities import ItemEntity
+from .db.entities import ItemEntity, GraphEdgeEntity
 
 
 # Initialize OpenAI client (lazy)
@@ -129,6 +129,22 @@ async def extract_and_store(
 
     if entities:
         item_ids = await uow.items.create_many(entities)
+
+        # Create graph edges for facts with complete SPO triples
+        graph_edges = []
+        for fact in facts:
+            if fact.subject and fact.predicate and fact.object:
+                graph_edges.append(GraphEdgeEntity(
+                    subject=fact.subject,
+                    predicate=fact.predicate,
+                    object=fact.object,
+                ))
+        if graph_edges:
+            try:
+                await uow.graph.create_many(graph_edges)
+            except Exception:
+                pass  # Graph edge creation is best-effort
+
         return item_ids
 
     return []

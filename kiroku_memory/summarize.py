@@ -205,6 +205,33 @@ async def get_tiered_context(
                 block_lines.append(f"- {item.subject} {item.predicate}{obj_part}")
             block_lines.append("")
 
+        # Graph relations: collect entities from items, query neighbors
+        if items:
+            subjects = {item.subject for item in items if item.subject}
+            related_edges = []
+            for subj in list(subjects)[:5]:
+                try:
+                    edges = await uow.graph.get_neighbors(subj, depth=1)
+                    related_edges.extend(edges)
+                except Exception:
+                    pass
+
+            # Deduplicate, exclude triples already shown as items
+            seen_triples = {(i.subject, i.predicate, i.object) for i in items}
+            unique_relations = []
+            seen = set()
+            for e in related_edges:
+                triple = (e.subject, e.predicate, e.object)
+                if triple not in seen_triples and triple not in seen:
+                    seen.add(triple)
+                    unique_relations.append(e)
+
+            if unique_relations:
+                block_lines.append("**Related:**")
+                for e in unique_relations[:5]:
+                    block_lines.append(f"- {e.subject} {e.predicate} {e.object}")
+                block_lines.append("")
+
         blocks.append((stats.name, "\n".join(block_lines)))
 
     # Apply max_chars truncation by complete categories
