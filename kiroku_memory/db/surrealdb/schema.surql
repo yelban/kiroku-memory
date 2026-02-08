@@ -32,6 +32,8 @@ DEFINE FIELD confidence ON item TYPE float DEFAULT 1.0;
 DEFINE FIELD status ON item TYPE string DEFAULT 'active'
     ASSERT $value IN ['active', 'archived', 'deleted'];
 DEFINE FIELD supersedes ON item TYPE option<record<item>>;
+DEFINE FIELD canonical_subject ON item TYPE option<string>;
+DEFINE FIELD canonical_object ON item TYPE option<string>;
 
 -- Embedding fields (stored inline for simplicity)
 DEFINE FIELD embedding ON item TYPE option<array<float>>;
@@ -44,6 +46,8 @@ DEFINE INDEX idx_item_category ON item FIELDS category;
 DEFINE INDEX idx_item_status ON item FIELDS status;
 DEFINE INDEX idx_item_subject ON item FIELDS subject;
 DEFINE INDEX idx_item_resource ON item FIELDS resource;
+DEFINE INDEX idx_item_canonical_subject ON item FIELDS canonical_subject;
+DEFINE INDEX idx_item_canonical_object ON item FIELDS canonical_object;
 
 -- Vector index for similarity search (HNSW)
 -- Note: Dimension must match embedding_dimensions in config (default 1536)

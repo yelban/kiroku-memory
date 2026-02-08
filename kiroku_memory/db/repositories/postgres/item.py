@@ -34,6 +34,8 @@ class PostgresItemRepository(ItemRepository):
             confidence=model.confidence,
             status=model.status,
             supersedes=model.supersedes,
+            canonical_subject=model.canonical_subject,
+            canonical_object=model.canonical_object,
         )
 
     def _to_model(self, entity: ItemEntity) -> Item:
@@ -49,6 +51,8 @@ class PostgresItemRepository(ItemRepository):
             confidence=entity.confidence,
             status=entity.status,
             supersedes=entity.supersedes,
+            canonical_subject=entity.canonical_subject,
+            canonical_object=entity.canonical_object,
         )
 
     async def create(self, entity: ItemEntity) -> UUID:
@@ -86,6 +90,8 @@ class PostgresItemRepository(ItemRepository):
                 confidence=entity.confidence,
                 status=entity.status,
                 supersedes=entity.supersedes,
+                canonical_subject=entity.canonical_subject,
+                canonical_object=entity.canonical_object,
             )
         )
 
@@ -126,10 +132,13 @@ class PostgresItemRepository(ItemRepository):
         return [self._to_entity(m) for m in result.scalars().all()]
 
     async def list_by_subject(self, subject: str, status: str = "active") -> list[ItemEntity]:
-        """List items with matching subject"""
+        """List items with matching subject (uses canonical_subject for resolution)"""
+        from ....entity_resolution import resolve_entity
+
+        canonical = resolve_entity(subject)
         result = await self._session.execute(
             select(Item)
-            .where(Item.subject == subject)
+            .where(Item.canonical_subject == canonical)
             .where(Item.status == status)
             .order_by(Item.created_at.desc())
         )
@@ -153,10 +162,13 @@ class PostgresItemRepository(ItemRepository):
         predicate: str,
         exclude_id: Optional[UUID] = None,
     ) -> list[ItemEntity]:
-        """Find items that may conflict with given subject/predicate"""
+        """Find items that may conflict with given subject/predicate (uses canonical)"""
+        from ....entity_resolution import resolve_entity
+
+        canonical = resolve_entity(subject)
         query = (
             select(Item)
-            .where(Item.subject == subject)
+            .where(Item.canonical_subject == canonical)
             .where(Item.predicate == predicate)
             .where(Item.status == "active")
         )
@@ -167,11 +179,11 @@ class PostgresItemRepository(ItemRepository):
         return [self._to_entity(m) for m in result.scalars().all()]
 
     async def list_duplicates(self) -> list[tuple[ItemEntity, ItemEntity]]:
-        """Find duplicate items (same subject/predicate/object)"""
+        """Find duplicate items (uses canonical subject/object for dedup)"""
         query = (
             select(Item)
             .where(Item.status == "active")
-            .order_by(Item.subject, Item.predicate, Item.object, Item.created_at)
+            .order_by(Item.canonical_subject, Item.predicate, Item.canonical_object, Item.created_at)
         )
         result = await self._session.execute(query)
         items = list(result.scalars().all())
@@ -179,7 +191,7 @@ class PostgresItemRepository(ItemRepository):
         duplicates = []
         seen = {}
         for item in items:
-            key = (item.subject, item.predicate, item.object)
+            key = (item.canonical_subject, item.predicate, item.canonical_object)
             if key in seen:
                 duplicates.append((self._to_entity(seen[key]), self._to_entity(item)))
             else:

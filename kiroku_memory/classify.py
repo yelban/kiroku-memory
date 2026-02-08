@@ -19,6 +19,8 @@ DEFAULT_CATEGORIES = [
     ("relationships", "People, organizations, and their connections"),
     ("skills", "Abilities, expertise, knowledge areas"),
     ("goals", "Objectives, plans, aspirations"),
+    ("identity", "Personal identity: name, role, occupation, demographics"),
+    ("behaviors", "Habits, routines, workflows, and recurring patterns"),
 ]
 
 # Initialize OpenAI client (lazy)
@@ -116,6 +118,10 @@ def _rule_based_classify(item: ItemEntity) -> str:
     """Simple rule-based classification fallback."""
     predicate = (item.predicate or "").lower()
 
+    if any(w in predicate for w in ["am", "is", "name", "role", "job", "occupation"]):
+        return "identity"
+    if any(w in predicate for w in ["always", "usually", "every", "routine", "habit", "workflow"]):
+        return "behaviors"
     if any(w in predicate for w in ["prefer", "like", "want", "use"]):
         return "preferences"
     if any(w in predicate for w in ["know", "met", "friend", "colleague"]):

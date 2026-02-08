@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 from .db.database import init_db, close_db
 from .db.repositories.factory import get_unit_of_work
 from .db.entities import ResourceEntity, ItemEntity, CategoryEntity, GraphEdgeEntity
+from .entity_resolution import resolve_entity
 from .extract import extract_and_store, process_pending_resources
 from .classify import classify_item
 from .conflict import auto_resolve_conflicts
@@ -512,6 +513,8 @@ async def create_item_v2(request: CreateItemRequest):
             category=request.category,
             confidence=request.confidence,
             status="active",
+            canonical_subject=resolve_entity(request.subject) if request.subject else None,
+            canonical_object=resolve_entity(request.object) if request.object else None,
         )
 
         item_id = await uow.items.create(entity)
@@ -528,13 +531,13 @@ async def create_item_v2(request: CreateItemRequest):
         except Exception:
             logger.debug("Skipping embedding generation (provider unavailable)")
 
-        # Auto-create graph edge
+        # Auto-create graph edge (use canonical forms)
         if request.subject and request.predicate and request.object:
             try:
                 edge = GraphEdgeEntity(
-                    subject=request.subject,
+                    subject=resolve_entity(request.subject),
                     predicate=request.predicate,
-                    object=request.object,
+                    object=resolve_entity(request.object),
                 )
                 await uow.graph.create(edge)
             except Exception:

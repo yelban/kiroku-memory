@@ -61,6 +61,8 @@ class Item(Base):
     supersedes: Mapped[Optional[UUID]] = mapped_column(
         PgUUID(as_uuid=True), ForeignKey("items.id", ondelete="SET NULL"), nullable=True
     )
+    canonical_subject: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    canonical_object: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     # Relationships
     resource: Mapped[Optional["Resource"]] = relationship("Resource", back_populates="items")
@@ -74,6 +76,8 @@ class Item(Base):
         Index("idx_items_status", status),
         Index("idx_items_subject", subject),
         Index("idx_items_resource_id", resource_id),
+        Index("idx_items_canonical_subject", canonical_subject),
+        Index("idx_items_canonical_object", canonical_object),
     )
 
 

@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from .db.config import settings
 from .db.repositories.base import UnitOfWork
 from .db.entities import ItemEntity, GraphEdgeEntity
+from .entity_resolution import resolve_entity
 
 
 # Initialize OpenAI client (lazy)
@@ -42,7 +43,7 @@ For each fact, identify:
 - subject: The entity the fact is about
 - predicate: The relationship or property
 - object: The value or related entity
-- category: One of [preferences, facts, events, relationships, skills, goals]
+- category: One of [preferences, facts, events, relationships, skills, goals, identity, behaviors]
 - confidence: 0.0-1.0 based on certainty
 
 Return JSON array of facts. Only extract clear, verifiable facts.
@@ -124,20 +125,22 @@ async def extract_and_store(
             category=fact.category,
             confidence=fact.confidence,
             status="active",
+            canonical_subject=resolve_entity(fact.subject) if fact.subject else None,
+            canonical_object=resolve_entity(fact.object) if fact.object else None,
         )
         entities.append(entity)
 
     if entities:
         item_ids = await uow.items.create_many(entities)
 
-        # Create graph edges for facts with complete SPO triples
+        # Create graph edges for facts with complete SPO triples (use canonical forms)
         graph_edges = []
         for fact in facts:
             if fact.subject and fact.predicate and fact.object:
                 graph_edges.append(GraphEdgeEntity(
-                    subject=fact.subject,
+                    subject=resolve_entity(fact.subject),
                     predicate=fact.predicate,
-                    object=fact.object,
+                    object=resolve_entity(fact.object),
                 ))
         if graph_edges:
             try:

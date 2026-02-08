@@ -163,6 +163,8 @@ async def get_tiered_context(
         "preferences": "User preferences, settings, and personal choices",
         "relationships": "People, organizations, and their connections",
         "skills": "Abilities, expertise, knowledge areas",
+        "identity": "Personal identity, name, role, occupation, demographics",
+        "behaviors": "Habits, routines, workflows, and recurring patterns",
     }
 
     header = "## User Memory Context\n"
@@ -205,9 +207,10 @@ async def get_tiered_context(
                 block_lines.append(f"- {item.subject} {item.predicate}{obj_part}")
             block_lines.append("")
 
-        # Graph relations: collect entities from items, query neighbors
+        # Graph relations: collect entities from items, query neighbors (use canonical)
         if items:
-            subjects = {item.subject for item in items if item.subject}
+            from .entity_resolution import resolve_entity
+            subjects = {resolve_entity(item.subject) for item in items if item.subject}
             related_edges = []
             for subj in list(subjects)[:5]:
                 try:

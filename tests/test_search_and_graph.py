@@ -92,6 +92,26 @@ class TestClassifyIntent:
         assert isinstance(result, AspectFilter)
         assert result.category == "skills"
 
+    def test_aspect_identity(self):
+        result = classify_intent("identity")
+        assert isinstance(result, AspectFilter)
+        assert result.category == "identity"
+
+    def test_aspect_identity_chinese(self):
+        result = classify_intent("身份")
+        assert isinstance(result, AspectFilter)
+        assert result.category == "identity"
+
+    def test_aspect_behaviors(self):
+        result = classify_intent("習慣")
+        assert isinstance(result, AspectFilter)
+        assert result.category == "behaviors"
+
+    def test_aspect_behaviors_english(self):
+        result = classify_intent("routine")
+        assert isinstance(result, AspectFilter)
+        assert result.category == "behaviors"
+
     def test_semantic_default(self):
         result = classify_intent("how to use FastAPI")
         assert isinstance(result, SemanticSearch)
@@ -125,6 +145,8 @@ async def surreal_uow_with_data():
 
         uow = SurrealUnitOfWork(client)
 
+        from kiroku_memory.entity_resolution import resolve_entity
+
         # Populate test data
         items = [
             ItemEntity(
@@ -134,6 +156,8 @@ async def surreal_uow_with_data():
                 object="dark mode",
                 category="preferences",
                 confidence=0.9,
+                canonical_subject=resolve_entity("user"),
+                canonical_object=resolve_entity("dark mode"),
             ),
             ItemEntity(
                 id=uuid4(),
@@ -142,6 +166,8 @@ async def surreal_uow_with_data():
                 object="vim",
                 category="preferences",
                 confidence=0.85,
+                canonical_subject=resolve_entity("user"),
+                canonical_object=resolve_entity("vim"),
             ),
             ItemEntity(
                 id=uuid4(),
@@ -150,6 +176,8 @@ async def surreal_uow_with_data():
                 object="Acme Corp",
                 category="facts",
                 confidence=1.0,
+                canonical_subject=resolve_entity("user"),
+                canonical_object=resolve_entity("Acme Corp"),
             ),
             ItemEntity(
                 id=uuid4(),
@@ -158,6 +186,8 @@ async def surreal_uow_with_data():
                 object="learn Rust",
                 category="goals",
                 confidence=0.8,
+                canonical_subject=resolve_entity("user"),
+                canonical_object=resolve_entity("learn Rust"),
             ),
         ]
 

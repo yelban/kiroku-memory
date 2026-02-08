@@ -36,6 +36,9 @@ class ItemEntity:
     confidence: float = 1.0
     status: str = "active"
     supersedes: Optional[UUID] = None
+    # Canonical forms for entity resolution (matching/dedup)
+    canonical_subject: Optional[str] = None
+    canonical_object: Optional[str] = None
     # Embedding (optional, for backends that store it inline)
     embedding: Optional[list[float]] = None
 

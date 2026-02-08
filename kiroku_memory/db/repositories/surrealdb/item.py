@@ -78,6 +78,8 @@ class SurrealItemRepository(ItemRepository):
             confidence=float(record.get("confidence", 1.0)),
             status=record.get("status", "active"),
             supersedes=supersedes,
+            canonical_subject=record.get("canonical_subject"),
+            canonical_object=record.get("canonical_object"),
             embedding=record.get("embedding"),
         )
 
@@ -106,6 +108,8 @@ class SurrealItemRepository(ItemRepository):
                 status: $status,
                 resource: IF $resource_id != NONE THEN type::thing("resource", $resource_id) ELSE NONE END,
                 supersedes: IF $supersedes_id != NONE THEN type::thing("item", $supersedes_id) ELSE NONE END,
+                canonical_subject: $canonical_subject,
+                canonical_object: $canonical_object,
                 embedding: $embedding
             }
         """
@@ -122,6 +126,8 @@ class SurrealItemRepository(ItemRepository):
                 "status": entity.status,
                 "resource_id": resource_ref,
                 "supersedes_id": supersedes_ref,
+                "canonical_subject": entity.canonical_subject,
+                "canonical_object": entity.canonical_object,
                 "embedding": entity.embedding,
             },
         )
@@ -160,6 +166,8 @@ class SurrealItemRepository(ItemRepository):
             "category": entity.category,
             "confidence": entity.confidence,
             "status": entity.status,
+            "canonical_subject": entity.canonical_subject,
+            "canonical_object": entity.canonical_object,
         }
 
         if entity.supersedes:
@@ -228,14 +236,17 @@ class SurrealItemRepository(ItemRepository):
         return []
 
     async def list_by_subject(self, subject: str, status: str = "active") -> list[ItemEntity]:
-        """List items with matching subject"""
+        """List items with matching subject (uses canonical_subject for resolution)"""
+        from ....entity_resolution import resolve_entity
+
+        canonical = resolve_entity(subject)
         result = await self._client.query(
             """
             SELECT * FROM item
-            WHERE subject = $subject AND status = $status
+            WHERE canonical_subject = $canonical AND status = $status
             ORDER BY created_at DESC
             """,
-            {"subject": subject, "status": status},
+            {"canonical": canonical, "status": status},
         )
 
         if result:
@@ -272,9 +283,12 @@ class SurrealItemRepository(ItemRepository):
         predicate: str,
         exclude_id: Optional[UUID] = None,
     ) -> list[ItemEntity]:
-        """Find items that may conflict with given subject/predicate"""
+        """Find items that may conflict with given subject/predicate (uses canonical)"""
+        from ....entity_resolution import resolve_entity
+
+        canonical = resolve_entity(subject)
         params = {
-            "subject": subject,
+            "canonical": canonical,
             "predicate": predicate,
         }
 
@@ -286,7 +300,7 @@ class SurrealItemRepository(ItemRepository):
         result = await self._client.query(
             f"""
             SELECT * FROM item
-            WHERE subject = $subject
+            WHERE canonical_subject = $canonical
                 AND predicate = $predicate
                 AND status = 'active'
                 {exclude_clause}
@@ -299,12 +313,12 @@ class SurrealItemRepository(ItemRepository):
         return []
 
     async def list_duplicates(self) -> list[tuple[ItemEntity, ItemEntity]]:
-        """Find duplicate items (same subject/predicate/object)"""
+        """Find duplicate items (uses canonical subject/object for dedup)"""
         result = await self._client.query(
             """
             SELECT * FROM item
             WHERE status = 'active'
-            ORDER BY subject, predicate, object, created_at
+            ORDER BY canonical_subject, predicate, canonical_object, created_at
             """,
             {},
         )
@@ -316,7 +330,7 @@ class SurrealItemRepository(ItemRepository):
         seen = {}
         for record in result:
             entity = self._to_entity(record)
-            key = (entity.subject, entity.predicate, entity.object)
+            key = (entity.canonical_subject, entity.predicate, entity.canonical_object)
             if key in seen:
                 duplicates.append((seen[key], entity))
             else:

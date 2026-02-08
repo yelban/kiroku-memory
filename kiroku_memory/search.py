@@ -9,6 +9,7 @@ from typing import Optional
 from uuid import UUID
 
 from .db.repositories.base import UnitOfWork
+from .entity_resolution import resolve_entity
 from .observability import logger
 
 
@@ -50,6 +51,8 @@ CATEGORY_KEYWORDS: dict[str, list[str]] = {
     "relationships": ["relationships", "關係", "人脈", "knows", "friend"],
     "skills": ["skills", "技能", "能力", "can do", "expertise"],
     "goals": ["goals", "目標", "計畫", "plan", "want to", "想要"],
+    "identity": ["identity", "身份", "角色", "who am i", "名字", "職業", "occupation", "role"],
+    "behaviors": ["behaviors", "習慣", "行為", "routine", "habit", "慣例", "workflow", "always"],
 }
 
 
@@ -148,12 +151,13 @@ async def _entity_lookup(
     limit: int,
 ) -> dict:
     """Look up an entity via graph traversal + item search."""
+    canonical = resolve_entity(entity)
     results: list[dict] = []
     seen_ids: set[UUID] = set()
 
-    # 1. Graph neighbors
+    # 1. Graph neighbors (use canonical form)
     try:
-        edges = await uow.graph.get_neighbors(entity, depth=1)
+        edges = await uow.graph.get_neighbors(canonical, depth=1)
         for edge in edges:
             # Find items matching this edge's subject
             items = await uow.items.list_by_subject(edge.subject, status="active")
@@ -171,9 +175,9 @@ async def _entity_lookup(
     except Exception:
         logger.debug("Graph lookup failed, falling back to item search")
 
-    # 2. Direct item search by subject
+    # 2. Direct item search by subject (canonical resolution happens in repository)
     try:
-        items = await uow.items.list_by_subject(entity, status="active")
+        items = await uow.items.list_by_subject(canonical, status="active")
         for item in items:
             if item.id not in seen_ids and (not category or item.category == category):
                 seen_ids.add(item.id)

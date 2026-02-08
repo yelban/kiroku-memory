@@ -39,7 +39,9 @@ class PriorityConfig:
             self.static_weights = {
                 "preferences": 1.0,    # Most useful for personalization
                 "facts": 0.9,          # Core user information
+                "identity": 0.85,      # Personal identity info
                 "goals": 0.7,          # User objectives
+                "behaviors": 0.65,     # Habits and routines
                 "skills": 0.6,         # User abilities
                 "relationships": 0.5,  # Social context
                 "events": 0.4,         # Least critical for context
