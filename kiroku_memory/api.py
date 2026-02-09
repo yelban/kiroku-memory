@@ -255,7 +255,7 @@ async def list_categories():
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
-    return {"status": "ok", "version": "0.1.0"}
+    return {"status": "ok", "version": app.version}
 
 
 # ============ Phase 2: Intelligence ============
