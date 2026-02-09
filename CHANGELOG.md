@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.23] - 2026-02-09
+
+### Added
+
+- **Search**: Intent-driven retrieval with 4 classifiers (EntityLookup, Temporal, AspectFilter, SemanticSearch)
+- **Graph**: Real-time knowledge graph edge creation and neighbor query API (`GET /graph/neighbors`)
+- **Graph**: Multi-hop path finding with BFS (max depth 3) and API endpoint (`GET /graph/paths`)
+- **Entity Resolution**: Canonical subject/object dual-field scheme with 30+ built-in aliases
+- **Retrieval**: Graph-enhanced retrieval with `smart_search()` and related-items context block
+- **Aspect**: Expanded categories from 6 to 8 (added `identity` and `behaviors`)
+- **Reified Statements**: Meta-facts about items (`meta_about` field), API endpoints `GET/POST /v2/items/{id}/meta`
+- **Confidence Propagation**: Weekly pipeline neighbor-weighted algorithm (0.85 self + 0.15 neighbor signal)
+- **Embedding Auto-Update**: `extract_and_store()` auto-generates embeddings; `recompute_all_embeddings()` batch rebuild
+
+### Fixed
+
+- **API**: `/health` endpoint now returns dynamic `app.version` instead of hardcoded `"0.1.0"`
+- **SurrealDB**: `delete_stale()` uses `RecordID` objects instead of strings for correct `NOT IN` comparison
+
 ## [0.1.22] - 2026-02-06
 
 ### Fixed
