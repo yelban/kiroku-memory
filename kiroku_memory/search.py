@@ -150,30 +150,23 @@ async def _entity_lookup(
     category: Optional[str],
     limit: int,
 ) -> dict:
-    """Look up an entity via graph traversal + item search."""
+    """Look up an entity via multi-hop graph traversal + item search."""
     canonical = resolve_entity(entity)
     results: list[dict] = []
     seen_ids: set[UUID] = set()
 
-    # 1. Graph neighbors (use canonical form)
+    # 1. Multi-hop graph paths (depth≤2)
     try:
-        edges = await uow.graph.get_neighbors(canonical, depth=1)
-        for edge in edges:
-            # Find items matching this edge's subject
-            items = await uow.items.list_by_subject(edge.subject, status="active")
+        paths = await uow.graph.find_paths(canonical, max_depth=2, max_paths=30)
+        for path in paths:
+            sim = max(0.5, 1.0 - path.distance * 0.15)
+            items = await uow.items.list_by_subject(path.target, status="active")
             for item in items:
                 if item.id not in seen_ids and (not category or item.category == category):
                     seen_ids.add(item.id)
-                    results.append(_item_to_dict(item, similarity=0.9))
-
-            # Also find items matching the object side
-            items = await uow.items.list_by_subject(edge.object, status="active")
-            for item in items:
-                if item.id not in seen_ids and (not category or item.category == category):
-                    seen_ids.add(item.id)
-                    results.append(_item_to_dict(item, similarity=0.8))
+                    results.append(_item_to_dict(item, similarity=sim))
     except Exception:
-        logger.debug("Graph lookup failed, falling back to item search")
+        logger.debug("Graph find_paths failed, falling back to item search")
 
     # 2. Direct item search by subject (canonical resolution happens in repository)
     try:

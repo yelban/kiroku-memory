@@ -557,6 +557,72 @@ async def create_item_v2(request: CreateItemRequest):
         )
 
 
+class MetaFactOut(BaseModel):
+    """Meta-fact output"""
+    id: UUID
+    predicate: str
+    object: Optional[str]
+    confidence: float
+    created_at: datetime
+    meta_about: UUID
+
+    class Config:
+        from_attributes = True
+
+
+class CreateMetaFactRequest(BaseModel):
+    """Request to create a meta-fact about an item"""
+    predicate: str = Field(..., description="Meta relationship (e.g. has_source, verified_by)")
+    object: str = Field(..., description="Meta value (e.g. gpt-4o-mini, user)")
+    confidence: float = Field(1.0, ge=0.0, le=1.0)
+
+
+@app.get("/v2/items/{item_id}/meta", response_model=list[MetaFactOut], tags=["v2"])
+async def get_item_meta(item_id: UUID):
+    """Get all meta-facts about an item"""
+    async with get_unit_of_work() as uow:
+        item = await uow.items.get(item_id)
+        if not item:
+            raise HTTPException(status_code=404, detail="Item not found")
+        meta_facts = await uow.items.get_meta_facts(item_id)
+        return [
+            MetaFactOut(
+                id=m.id,
+                predicate=m.predicate,
+                object=m.object,
+                confidence=m.confidence,
+                created_at=m.created_at,
+                meta_about=m.meta_about,
+            )
+            for m in meta_facts
+        ]
+
+
+@app.post("/v2/items/{item_id}/meta", response_model=MetaFactOut, tags=["v2"])
+async def create_item_meta(item_id: UUID, request: CreateMetaFactRequest):
+    """Create a meta-fact about an item"""
+    async with get_unit_of_work() as uow:
+        item = await uow.items.get(item_id)
+        if not item:
+            raise HTTPException(status_code=404, detail="Item not found")
+        meta_id = await uow.items.create_meta_fact(
+            about_item_id=item_id,
+            predicate=request.predicate,
+            object_value=request.object,
+            confidence=request.confidence,
+        )
+        await uow.commit()
+        meta = await uow.items.get(meta_id)
+        return MetaFactOut(
+            id=meta.id,
+            predicate=meta.predicate,
+            object=meta.object,
+            confidence=meta.confidence,
+            created_at=meta.created_at,
+            meta_about=meta.meta_about,
+        )
+
+
 @app.get("/v2/categories", response_model=list[CategoryOut], tags=["v2"])
 async def list_categories_v2():
     """List all categories with summaries (v2 - derived from items)"""
@@ -673,6 +739,73 @@ async def search_endpoint(
                 for r in results["items"]
             ],
             total=results["total"],
+        )
+
+
+class GraphPathOut(BaseModel):
+    """Graph path output"""
+    source: str
+    target: str
+    hops: list[str]
+    edges: list[GraphEdgeOut]
+    distance: int
+    weight: float
+
+
+class GraphPathsResponse(BaseModel):
+    """Graph paths response"""
+    source: str
+    target: Optional[str]
+    max_depth: int
+    paths: list[GraphPathOut]
+    total: int
+
+
+@app.get("/graph/paths", response_model=GraphPathsResponse, tags=["graph"])
+async def graph_paths_endpoint(
+    source: str,
+    target: Optional[str] = None,
+    max_depth: int = 2,
+    max_paths: int = 20,
+):
+    """
+    Find paths through the knowledge graph using BFS.
+
+    Returns all reachable paths from source, or only paths to target if specified.
+    max_depth is capped at 3 to prevent explosion.
+    """
+    async with get_unit_of_work() as uow:
+        paths = await uow.graph.find_paths(
+            source=source,
+            target=target,
+            max_depth=min(max_depth, 3),
+            max_paths=max_paths,
+        )
+        return GraphPathsResponse(
+            source=source,
+            target=target,
+            max_depth=min(max_depth, 3),
+            paths=[
+                GraphPathOut(
+                    source=p.source,
+                    target=p.target,
+                    hops=p.hops,
+                    edges=[
+                        GraphEdgeOut(
+                            id=e.id,
+                            subject=e.subject,
+                            predicate=e.predicate,
+                            object=e.object,
+                            weight=e.weight,
+                        )
+                        for e in p.edges
+                    ],
+                    distance=p.distance,
+                    weight=p.weight,
+                )
+                for p in paths
+            ],
+            total=len(paths),
         )
 
 

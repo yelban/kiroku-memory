@@ -1,9 +1,10 @@
 """Weekly maintenance job - Compress old items, prune unused"""
 
+from collections import defaultdict
 from datetime import datetime
 
 from ..db.repositories.base import UnitOfWork
-from ..db.entities import ItemEntity
+from ..db.entities import ItemEntity, GraphEdgeEntity
 
 
 # Time decay configuration
@@ -55,6 +56,124 @@ async def apply_time_decay(
             item.confidence = max(0.1, new_confidence)  # Minimum 0.1
             await uow.items.update(item)
             updated += 1
+
+    return updated
+
+
+# Confidence propagation configuration
+PROPAGATION_STRENGTH = 0.15
+DISTANCE_DISCOUNT = {1: 1.0, 2: 0.5}
+MIN_CHANGE_THRESHOLD = 0.01
+MAX_PROPAGATION_DEPTH = 2
+
+
+def _build_adjacency(
+    edges: list[GraphEdgeEntity], max_depth: int = MAX_PROPAGATION_DEPTH
+) -> dict[str, list[tuple[str, float, int]]]:
+    """
+    Build adjacency map from graph edges with multi-hop expansion.
+
+    Returns:
+        dict mapping entity -> [(neighbor_entity, edge_weight, distance)]
+    """
+    # 1-hop direct neighbors
+    direct: dict[str, list[tuple[str, float]]] = defaultdict(list)
+    for edge in edges:
+        direct[edge.subject].append((edge.object, edge.weight))
+        direct[edge.object].append((edge.subject, edge.weight))
+
+    # Build result with distance info
+    adjacency: dict[str, list[tuple[str, float, int]]] = defaultdict(list)
+
+    for entity, neighbors in direct.items():
+        seen = {entity}
+        # 1-hop
+        for neighbor, weight in neighbors:
+            if neighbor not in seen:
+                adjacency[entity].append((neighbor, weight, 1))
+                seen.add(neighbor)
+
+        # 2-hop (if max_depth >= 2)
+        if max_depth >= 2:
+            for neighbor, _ in neighbors:
+                for hop2, weight2, in direct.get(neighbor, []):
+                    if hop2 not in seen:
+                        adjacency[entity].append((hop2, weight2, 2))
+                        seen.add(hop2)
+
+    return dict(adjacency)
+
+
+async def propagate_confidence(uow: UnitOfWork) -> int:
+    """
+    Propagate confidence through the knowledge graph.
+
+    High-confidence neighbors boost item confidence;
+    low-confidence neighbors pull it down.
+
+    Returns:
+        Number of items updated
+    """
+    items = await uow.items.list(status="active", limit=10000)
+    edges = await uow.graph.list_all()
+
+    if not edges:
+        return 0
+
+    adjacency = _build_adjacency(edges)
+
+    # Build entity -> items mapping (using canonical_subject)
+    entity_items: dict[str, list[ItemEntity]] = defaultdict(list)
+    for item in items:
+        if item.meta_about is not None:
+            continue
+        canonical = item.canonical_subject or item.canonical_object
+        if canonical:
+            entity_items[canonical].append(item)
+
+    # Build entity -> avg confidence for neighbor lookups
+    entity_confidence: dict[str, float] = {}
+    for entity, eitems in entity_items.items():
+        if eitems:
+            entity_confidence[entity] = sum(i.confidence for i in eitems) / len(eitems)
+
+    updated = 0
+    for item in items:
+        if item.meta_about is not None:
+            continue
+
+        canonical = item.canonical_subject or item.canonical_object
+        if not canonical or canonical not in adjacency:
+            continue
+
+        neighbors = adjacency[canonical]
+        if not neighbors:
+            continue
+
+        # Weighted average of neighbor confidence
+        total_weight = 0.0
+        weighted_sum = 0.0
+        for neighbor_entity, edge_weight, distance in neighbors:
+            if neighbor_entity not in entity_confidence:
+                continue
+            discount = DISTANCE_DISCOUNT.get(distance, 0.0)
+            w = edge_weight * discount
+            weighted_sum += entity_confidence[neighbor_entity] * w
+            total_weight += w
+
+        if total_weight == 0:
+            continue
+
+        neighbor_signal = weighted_sum / total_weight
+        new_confidence = item.confidence * (1 - PROPAGATION_STRENGTH) + neighbor_signal * PROPAGATION_STRENGTH
+        new_confidence = max(0.1, min(1.0, new_confidence))
+
+        if abs(new_confidence - item.confidence) < MIN_CHANGE_THRESHOLD:
+            continue
+
+        item.confidence = new_confidence
+        await uow.items.update(item)
+        updated += 1
 
     return updated
 
@@ -194,9 +313,10 @@ async def run_weekly_maintenance(uow: UnitOfWork) -> dict:
 
     Steps:
     1. Apply time decay to confidence scores
-    2. Archive old low-confidence items
-    3. Compress similar items
-    4. Cleanup orphaned resources
+    2. Propagate confidence through knowledge graph
+    3. Archive old low-confidence items
+    4. Compress similar items
+    5. Cleanup orphaned resources
 
     Returns:
         Job statistics
@@ -209,13 +329,16 @@ async def run_weekly_maintenance(uow: UnitOfWork) -> dict:
     # Step 1: Apply time decay
     stats["decayed"] = await apply_time_decay(uow)
 
-    # Step 2: Archive old items
+    # Step 2: Propagate confidence through knowledge graph
+    stats["propagated"] = await propagate_confidence(uow)
+
+    # Step 3: Archive old items
     stats["archived"] = await archive_old_items(uow)
 
-    # Step 3: Compress similar
+    # Step 4: Compress similar
     stats["compressed"] = await compress_similar_items(uow)
 
-    # Step 4: Cleanup orphans
+    # Step 5: Cleanup orphans
     stats["orphans_deleted"] = await cleanup_orphaned_resources(uow)
 
     stats["after"] = await get_memory_stats(uow)

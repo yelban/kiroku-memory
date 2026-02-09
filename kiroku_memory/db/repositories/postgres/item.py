@@ -36,6 +36,7 @@ class PostgresItemRepository(ItemRepository):
             supersedes=model.supersedes,
             canonical_subject=model.canonical_subject,
             canonical_object=model.canonical_object,
+            meta_about=model.meta_about,
         )
 
     def _to_model(self, entity: ItemEntity) -> Item:
@@ -53,6 +54,7 @@ class PostgresItemRepository(ItemRepository):
             supersedes=entity.supersedes,
             canonical_subject=entity.canonical_subject,
             canonical_object=entity.canonical_object,
+            meta_about=entity.meta_about,
         )
 
     async def create(self, entity: ItemEntity) -> UUID:
@@ -109,10 +111,11 @@ class PostgresItemRepository(ItemRepository):
         status: str = "active",
         limit: int = 100,
     ) -> list[ItemEntity]:
-        """List items with optional filters"""
+        """List items with optional filters (excludes meta-facts)"""
         query = (
             select(Item)
             .where(Item.status == status)
+            .where(Item.meta_about.is_(None))
             .order_by(Item.created_at.desc())
             .limit(limit)
         )
@@ -132,7 +135,7 @@ class PostgresItemRepository(ItemRepository):
         return [self._to_entity(m) for m in result.scalars().all()]
 
     async def list_by_subject(self, subject: str, status: str = "active") -> list[ItemEntity]:
-        """List items with matching subject (uses canonical_subject for resolution)"""
+        """List items with matching subject (uses canonical_subject, excludes meta-facts)"""
         from ....entity_resolution import resolve_entity
 
         canonical = resolve_entity(subject)
@@ -140,6 +143,7 @@ class PostgresItemRepository(ItemRepository):
             select(Item)
             .where(Item.canonical_subject == canonical)
             .where(Item.status == status)
+            .where(Item.meta_about.is_(None))
             .order_by(Item.created_at.desc())
         )
         return [self._to_entity(m) for m in result.scalars().all()]
@@ -179,10 +183,11 @@ class PostgresItemRepository(ItemRepository):
         return [self._to_entity(m) for m in result.scalars().all()]
 
     async def list_duplicates(self) -> list[tuple[ItemEntity, ItemEntity]]:
-        """Find duplicate items (uses canonical subject/object for dedup)"""
+        """Find duplicate items (uses canonical subject/object, excludes meta-facts)"""
         query = (
             select(Item)
             .where(Item.status == "active")
+            .where(Item.meta_about.is_(None))
             .order_by(Item.canonical_subject, Item.predicate, Item.canonical_object, Item.created_at)
         )
         result = await self._session.execute(query)
@@ -213,11 +218,12 @@ class PostgresItemRepository(ItemRepository):
         return result.scalar() or 0
 
     async def list_distinct_categories(self, status: str = "active") -> list[str]:
-        """List distinct category names for items with given status"""
+        """List distinct category names for items with given status (excludes meta-facts)"""
         result = await self._session.execute(
             select(Item.category)
             .where(Item.status == status)
             .where(Item.category.isnot(None))
+            .where(Item.meta_about.is_(None))
             .distinct()
         )
         return [row[0] for row in result.all()]
@@ -284,3 +290,37 @@ class PostgresItemRepository(ItemRepository):
         )
         model = result.scalar_one_or_none()
         return self._to_entity(model) if model else None
+
+    async def get_meta_facts(self, item_id: UUID) -> list[ItemEntity]:
+        """Get all meta-facts about a given item"""
+        result = await self._session.execute(
+            select(Item)
+            .where(Item.meta_about == item_id)
+            .where(Item.status == "active")
+            .order_by(Item.created_at.desc())
+        )
+        return [self._to_entity(m) for m in result.scalars().all()]
+
+    async def create_meta_fact(
+        self,
+        about_item_id: UUID,
+        predicate: str,
+        object_value: str,
+        confidence: float = 1.0,
+    ) -> UUID:
+        """Create a meta-fact about an existing item"""
+        from uuid import uuid4
+        from datetime import timezone
+
+        entity = ItemEntity(
+            id=uuid4(),
+            created_at=datetime.now(timezone.utc).replace(tzinfo=None),
+            subject=None,
+            predicate=predicate,
+            object=object_value,
+            category="meta",
+            confidence=confidence,
+            status="active",
+            meta_about=about_item_id,
+        )
+        return await self.create(entity)

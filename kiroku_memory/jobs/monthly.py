@@ -21,14 +21,44 @@ async def recompute_all_embeddings(
     Returns:
         Statistics dict
     """
+    from ..embedding.factory import get_embedding_provider
+    from ..db.config import settings
+
     stats = {"processed": 0, "errors": 0}
 
-    # Get all active item IDs
-    item_ids = await uow.items.list_all_ids(status="active")
+    # Get all active items (exclude meta items)
+    all_items = await uow.items.list(status="active", limit=100000)
+    items = [it for it in all_items if it.meta_about is None]
 
-    # Note: embed_item will be updated in Phase 6 to use UoW
-    # For now, just count items that would be processed
-    stats["processed"] = len(item_ids)
+    if not items:
+        return stats
+
+    provider = get_embedding_provider()
+    storage_dim = settings.embedding_dimensions
+
+    # Process in batches
+    for i in range(0, len(items), batch_size):
+        batch = items[i : i + batch_size]
+        try:
+            texts = [
+                provider.build_text_for_item(
+                    it.subject, it.predicate, it.object, it.category
+                )
+                for it in batch
+            ]
+            results = await provider.embed_batch(texts)
+
+            embeddings: dict[UUID, list[float]] = {}
+            for item, result in zip(batch, results):
+                vec = result.vector
+                if len(vec) != storage_dim:
+                    vec = provider.adapt_vector(vec, storage_dim)
+                embeddings[item.id] = vec
+
+            await uow.embeddings.batch_upsert(embeddings)
+            stats["processed"] += len(batch)
+        except Exception:
+            stats["errors"] += len(batch)
 
     return stats
 

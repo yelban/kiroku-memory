@@ -199,7 +199,8 @@ class SurrealEmbeddingRepository(EmbeddingRepository):
             return count
 
         # Convert UUIDs to record IDs
-        active_ids = [f"item:{item_id}" for item_id in active_item_ids]
+        from surrealdb import RecordID
+        active_ids = [RecordID("item", str(item_id)) for item_id in active_item_ids]
 
         # Count stale embeddings
         count_result = await self._client.query(

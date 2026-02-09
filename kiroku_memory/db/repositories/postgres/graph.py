@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
-from typing import Sequence
+from collections import deque
+from typing import Optional, Sequence
 from uuid import UUID
 
 from sqlalchemy import select, delete, or_, func, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...models import GraphEdge
-from ...entities import GraphEdgeEntity
+from ...entities import GraphEdgeEntity, GraphPath
 from ..base import GraphRepository
 
 
@@ -122,6 +123,65 @@ class PostgresGraphRepository(GraphRepository):
             all_edges.extend(new_edges)
 
         return all_edges
+
+    async def find_paths(
+        self,
+        source: str,
+        target: Optional[str] = None,
+        max_depth: int = 2,
+        max_paths: int = 20,
+    ) -> list[GraphPath]:
+        """BFS find paths from source."""
+        max_depth = min(max_depth, 3)
+        paths: list[GraphPath] = []
+        queue: deque[tuple[str, list[str], list[GraphEdgeEntity], float]] = deque()
+        queue.append((source, [source], [], 1.0))
+        visited_edges: set[tuple[str, str, str]] = set()
+
+        while queue:
+            entity, hops, path_edges, w = queue.popleft()
+            if len(hops) - 1 >= max_depth:
+                continue
+
+            result = await self._session.execute(
+                select(GraphEdge).where(
+                    or_(GraphEdge.subject == entity, GraphEdge.object == entity)
+                )
+            )
+            neighbors = [self._to_entity(m) for m in result.scalars().all()]
+
+            for edge in neighbors:
+                edge_triple = (edge.subject, edge.predicate, edge.object)
+                if edge_triple in visited_edges:
+                    continue
+                visited_edges.add(edge_triple)
+
+                next_entity = edge.object if edge.subject == entity else edge.subject
+                if next_entity in hops:
+                    continue
+
+                new_hops = hops + [next_entity]
+                new_edges = path_edges + [edge]
+                new_weight = w * edge.weight
+
+                paths.append(GraphPath(
+                    source=source,
+                    target=next_entity,
+                    edges=new_edges,
+                    hops=new_hops,
+                    distance=len(new_edges),
+                    weight=new_weight,
+                ))
+
+                if len(new_hops) - 1 < max_depth:
+                    queue.append((next_entity, new_hops, new_edges, new_weight))
+
+        paths.sort(key=lambda p: p.weight, reverse=True)
+
+        if target:
+            paths = [p for p in paths if p.target == target]
+
+        return paths[:max_paths]
 
     async def delete_by_subject(self, subject: str) -> int:
         """Delete all edges from a subject, return count deleted"""

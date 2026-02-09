@@ -148,6 +148,30 @@ async def extract_and_store(
             except Exception:
                 pass  # Graph edge creation is best-effort
 
+        # Auto-generate embeddings (best-effort, skip if no provider)
+        try:
+            from .embedding.factory import generate_embedding, get_embedding_provider
+            provider = get_embedding_provider()
+            for entity, item_id in zip(entities, item_ids):
+                text = provider.build_text_for_item(
+                    entity.subject, entity.predicate, entity.object, entity.category
+                )
+                vector = await generate_embedding(text)
+                await uow.embeddings.upsert(item_id, vector)
+        except Exception:
+            pass  # Embedding generation is best-effort
+
+        # Create extraction_method meta-facts (best-effort)
+        for item_id in item_ids:
+            try:
+                await uow.items.create_meta_fact(
+                    about_item_id=item_id,
+                    predicate="extraction_method",
+                    object_value="gpt-4o-mini",
+                )
+            except Exception:
+                pass
+
         return item_ids
 
     return []

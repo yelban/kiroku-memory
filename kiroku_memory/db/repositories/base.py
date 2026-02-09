@@ -12,6 +12,7 @@ from ..entities import (
     ItemEntity,
     CategoryEntity,
     GraphEdgeEntity,
+    GraphPath,
     CategoryAccessEntity,
     EmbeddingSearchResult,
 )
@@ -170,6 +171,22 @@ class ItemRepository(ABC):
         """Get the active item that supersedes an archived item"""
         ...
 
+    @abstractmethod
+    async def get_meta_facts(self, item_id: UUID) -> list[ItemEntity]:
+        """Get all meta-facts about a given item"""
+        ...
+
+    @abstractmethod
+    async def create_meta_fact(
+        self,
+        about_item_id: UUID,
+        predicate: str,
+        object_value: str,
+        confidence: float = 1.0,
+    ) -> UUID:
+        """Create a meta-fact about an existing item"""
+        ...
+
 
 class CategoryRepository(ABC):
     """Repository for category summaries"""
@@ -258,6 +275,17 @@ class GraphRepository(ABC):
         self, subject: str, predicate: str, obj: str, weight: float
     ) -> bool:
         """Update edge weight, return True if updated"""
+        ...
+
+    @abstractmethod
+    async def find_paths(
+        self,
+        source: str,
+        target: Optional[str] = None,
+        max_depth: int = 2,
+        max_paths: int = 20,
+    ) -> list[GraphPath]:
+        """BFS find paths from source. target=None returns all reachable paths."""
         ...
 
     @abstractmethod

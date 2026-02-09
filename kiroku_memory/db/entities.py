@@ -39,6 +39,8 @@ class ItemEntity:
     # Canonical forms for entity resolution (matching/dedup)
     canonical_subject: Optional[str] = None
     canonical_object: Optional[str] = None
+    # Reified statements: if not None, this item is a meta-fact about the referenced item
+    meta_about: Optional[UUID] = None
     # Embedding (optional, for backends that store it inline)
     embedding: Optional[list[float]] = None
 
@@ -61,6 +63,17 @@ class GraphEdgeEntity:
     object: str = ""
     weight: float = 1.0
     created_at: datetime = field(default_factory=_utcnow)
+
+
+@dataclass
+class GraphPath:
+    """A path through the knowledge graph"""
+    source: str
+    target: str
+    edges: list[GraphEdgeEntity]
+    hops: list[str]
+    distance: int
+    weight: float
 
 
 @dataclass

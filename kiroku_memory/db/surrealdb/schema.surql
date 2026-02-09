@@ -34,6 +34,7 @@ DEFINE FIELD status ON item TYPE string DEFAULT 'active'
 DEFINE FIELD supersedes ON item TYPE option<record<item>>;
 DEFINE FIELD canonical_subject ON item TYPE option<string>;
 DEFINE FIELD canonical_object ON item TYPE option<string>;
+DEFINE FIELD meta_about ON item TYPE option<record<item>>;
 
 -- Embedding fields (stored inline for simplicity)
 DEFINE FIELD embedding ON item TYPE option<array<float>>;
@@ -48,6 +49,7 @@ DEFINE INDEX idx_item_subject ON item FIELDS subject;
 DEFINE INDEX idx_item_resource ON item FIELDS resource;
 DEFINE INDEX idx_item_canonical_subject ON item FIELDS canonical_subject;
 DEFINE INDEX idx_item_canonical_object ON item FIELDS canonical_object;
+DEFINE INDEX idx_item_meta_about ON item FIELDS meta_about;
 
 -- Vector index for similarity search (HNSW)
 -- Note: Dimension must match embedding_dimensions in config (default 1536)

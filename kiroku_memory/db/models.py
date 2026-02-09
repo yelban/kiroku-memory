@@ -63,11 +63,19 @@ class Item(Base):
     )
     canonical_subject: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     canonical_object: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    meta_about: Mapped[Optional[UUID]] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("items.id", ondelete="CASCADE"), nullable=True
+    )
 
     # Relationships
     resource: Mapped[Optional["Resource"]] = relationship("Resource", back_populates="items")
     embedding: Mapped[Optional["Embedding"]] = relationship("Embedding", back_populates="item", uselist=False)
-    superseded_item: Mapped[Optional["Item"]] = relationship("Item", remote_side=[id])
+    superseded_item: Mapped[Optional["Item"]] = relationship(
+        "Item", remote_side=[id], foreign_keys=[supersedes]
+    )
+    meta_facts: Mapped[list["Item"]] = relationship(
+        "Item", foreign_keys=[meta_about], cascade="all, delete-orphan"
+    )
 
     __table_args__ = (
         CheckConstraint("status IN ('active', 'archived', 'deleted')", name="check_item_status"),
@@ -78,6 +86,7 @@ class Item(Base):
         Index("idx_items_resource_id", resource_id),
         Index("idx_items_canonical_subject", canonical_subject),
         Index("idx_items_canonical_object", canonical_object),
+        Index("idx_items_meta_about", meta_about),
     )
 
 

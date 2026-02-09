@@ -65,6 +65,7 @@ x-to-markdown/
 codex-plan*.md
 SESSION_STATE.md
 docs/development-journey.md
+docs/journey/
 docs/x-tweet-extraction-workflow.md
 docs/progressive-disclosure-analysis.md
 

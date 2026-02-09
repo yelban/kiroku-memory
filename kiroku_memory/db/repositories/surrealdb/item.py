@@ -60,6 +60,16 @@ class SurrealItemRepository(ItemRepository):
                 uuid_part = supersedes_ref.split(":", 1)[1].strip("⟨⟩<>")
                 supersedes = UUID(uuid_part)
 
+        # Handle meta_about reference
+        meta_about = None
+        meta_about_ref = record.get("meta_about")
+        if meta_about_ref:
+            if hasattr(meta_about_ref, "id") and hasattr(meta_about_ref, "table_name"):
+                meta_about = UUID(str(meta_about_ref.id))
+            elif isinstance(meta_about_ref, str) and ":" in meta_about_ref:
+                uuid_part = meta_about_ref.split(":", 1)[1].strip("⟨⟩<>")
+                meta_about = UUID(uuid_part)
+
         # Handle datetime
         created_at = record.get("created_at")
         if isinstance(created_at, str):
@@ -80,6 +90,7 @@ class SurrealItemRepository(ItemRepository):
             supersedes=supersedes,
             canonical_subject=record.get("canonical_subject"),
             canonical_object=record.get("canonical_object"),
+            meta_about=meta_about,
             embedding=record.get("embedding"),
         )
 
@@ -96,6 +107,10 @@ class SurrealItemRepository(ItemRepository):
         if entity.supersedes:
             supersedes_ref = str(entity.supersedes)
 
+        meta_about_ref = None
+        if entity.meta_about:
+            meta_about_ref = str(entity.meta_about)
+
         query = """
             CREATE item CONTENT {
                 id: type::thing("item", $uuid),
@@ -108,6 +123,7 @@ class SurrealItemRepository(ItemRepository):
                 status: $status,
                 resource: IF $resource_id != NONE THEN type::thing("resource", $resource_id) ELSE NONE END,
                 supersedes: IF $supersedes_id != NONE THEN type::thing("item", $supersedes_id) ELSE NONE END,
+                meta_about: IF $meta_about_id != NONE THEN type::thing("item", $meta_about_id) ELSE NONE END,
                 canonical_subject: $canonical_subject,
                 canonical_object: $canonical_object,
                 embedding: $embedding
@@ -126,6 +142,7 @@ class SurrealItemRepository(ItemRepository):
                 "status": entity.status,
                 "resource_id": resource_ref,
                 "supersedes_id": supersedes_ref,
+                "meta_about_id": meta_about_ref,
                 "canonical_subject": entity.canonical_subject,
                 "canonical_object": entity.canonical_object,
                 "embedding": entity.embedding,
@@ -195,8 +212,8 @@ class SurrealItemRepository(ItemRepository):
         status: str = "active",
         limit: int = 100,
     ) -> list[ItemEntity]:
-        """List items with optional filters"""
-        conditions = ["status = $status"]
+        """List items with optional filters (excludes meta-facts)"""
+        conditions = ["status = $status", "meta_about = NONE"]
         params = {"status": status, "limit": limit}
 
         if category:
@@ -236,14 +253,14 @@ class SurrealItemRepository(ItemRepository):
         return []
 
     async def list_by_subject(self, subject: str, status: str = "active") -> list[ItemEntity]:
-        """List items with matching subject (uses canonical_subject for resolution)"""
+        """List items with matching subject (uses canonical_subject, excludes meta-facts)"""
         from ....entity_resolution import resolve_entity
 
         canonical = resolve_entity(subject)
         result = await self._client.query(
             """
             SELECT * FROM item
-            WHERE canonical_subject = $canonical AND status = $status
+            WHERE canonical_subject = $canonical AND status = $status AND meta_about = NONE
             ORDER BY created_at DESC
             """,
             {"canonical": canonical, "status": status},
@@ -313,11 +330,11 @@ class SurrealItemRepository(ItemRepository):
         return []
 
     async def list_duplicates(self) -> list[tuple[ItemEntity, ItemEntity]]:
-        """Find duplicate items (uses canonical subject/object for dedup)"""
+        """Find duplicate items (uses canonical subject/object, excludes meta-facts)"""
         result = await self._client.query(
             """
             SELECT * FROM item
-            WHERE status = 'active'
+            WHERE status = 'active' AND meta_about = NONE
             ORDER BY canonical_subject, predicate, canonical_object, created_at
             """,
             {},
@@ -357,11 +374,11 @@ class SurrealItemRepository(ItemRepository):
         return 0
 
     async def list_distinct_categories(self, status: str = "active") -> list[str]:
-        """List distinct category names for items with given status"""
+        """List distinct category names for items with given status (excludes meta-facts)"""
         result = await self._client.query(
             """
             SELECT category FROM item
-            WHERE status = $status AND category IS NOT NONE
+            WHERE status = $status AND category IS NOT NONE AND meta_about = NONE
             GROUP BY category
             """,
             {"status": status},
@@ -458,3 +475,40 @@ class SurrealItemRepository(ItemRepository):
         if result:
             return self._to_entity(result[0])
         return None
+
+    async def get_meta_facts(self, item_id: UUID) -> list[ItemEntity]:
+        """Get all meta-facts about a given item"""
+        result = await self._client.query(
+            """
+            SELECT * FROM item
+            WHERE meta_about = type::thing("item", $id) AND status = 'active'
+            ORDER BY created_at DESC
+            """,
+            {"id": str(item_id)},
+        )
+
+        if result:
+            return [self._to_entity(r) for r in result]
+        return []
+
+    async def create_meta_fact(
+        self,
+        about_item_id: UUID,
+        predicate: str,
+        object_value: str,
+        confidence: float = 1.0,
+    ) -> UUID:
+        """Create a meta-fact about an existing item"""
+        from uuid import uuid4
+
+        entity = ItemEntity(
+            id=uuid4(),
+            subject=None,
+            predicate=predicate,
+            object=object_value,
+            category="meta",
+            confidence=confidence,
+            status="active",
+            meta_about=about_item_id,
+        )
+        return await self.create(entity)
