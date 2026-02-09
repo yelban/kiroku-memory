@@ -210,7 +210,25 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: npm run tauri build -- --target ${{ matrix.target }}
+        run: npm run tauri build -- --target ${{ matrix.target }} --bundles app
+
+      - name: Create DMG with custom layout
+        if: matrix.platform == 'darwin'
+        run: |
+          brew install create-dmg
+          APP_PATH="desktop/src-tauri/target/${{ matrix.target }}/release/bundle/macos/Kiroku Memory.app"
+          DMG_DIR="desktop/src-tauri/target/${{ matrix.target }}/release/bundle/dmg"
+          mkdir -p "$DMG_DIR"
+          create-dmg \
+            --volname "Kiroku Memory" \
+            --background "desktop/src-tauri/images/dmg-background.png" \
+            --window-size 660 400 \
+            --icon-size 128 \
+            --icon "Kiroku Memory.app" 180 170 \
+            --app-drop-link 480 170 \
+            "$DMG_DIR/Kiroku Memory.dmg" \
+            "$APP_PATH" \
+          || test $? -eq 2
 
       - name: Build Tauri app (Linux)
         if: matrix.platform == 'linux'
